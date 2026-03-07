@@ -6,6 +6,10 @@ import { z } from "zod";
 import { learn, recall, stats, remove } from "./core/knowledge-store.js";
 import { exportToMarkdown } from "./core/exporter.js";
 import {
+  generateClaudeMdSection,
+  writeClaudeMd,
+} from "./core/claude-md-generator.js";
+import {
   registerProject,
   listProjects,
   getProject,
@@ -765,6 +769,57 @@ server.tool(
           {
             type: "text" as const,
             text: `Backup operation failed: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+// --- mnemo_generate ---
+server.tool(
+  "mnemo_generate",
+  "Generate or update the CLAUDE.md file for a project from Mnemo's knowledge base. Uses marker-based partial updates to preserve user-written content. The generated section includes pitfalls, preferences, patterns, lessons, solutions, and active tasks.",
+  {
+    project: z
+      .string()
+      .describe("Project name to generate CLAUDE.md for"),
+    dryRun: z
+      .boolean()
+      .optional()
+      .default(false)
+      .describe("If true, return generated content without writing to file"),
+  },
+  async (args) => {
+    try {
+      if (args.dryRun) {
+        const content = await generateClaudeMdSection(args.project);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `# CLAUDE.md プレビュー (${args.project})\n\n${content}`,
+            },
+          ],
+        };
+      }
+
+      const filePath = await writeClaudeMd(args.project);
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `CLAUDE.md を生成しました: ${filePath}\n\nユーザー手書き部分は保持されています。マーカー（MNEMO:START/END）間の内容のみ更新しました。`,
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `CLAUDE.md generation failed: ${error instanceof Error ? error.message : String(error)}`,
           },
         ],
         isError: true,

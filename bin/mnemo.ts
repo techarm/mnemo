@@ -4,6 +4,10 @@ import { program } from "commander";
 import { learn, recall, stats, remove } from "../src/core/knowledge-store.js";
 import { exportToMarkdown } from "../src/core/exporter.js";
 import {
+  generateClaudeMdSection,
+  writeClaudeMd,
+} from "../src/core/claude-md-generator.js";
+import {
   registerProject,
   listProjects,
   getProject,
@@ -522,6 +526,41 @@ backupCmd
       for (const [i, b] of backups.entries()) {
         console.log(`  ${i + 1}. ${b.path}`);
         console.log(`     サイズ: ${b.size} | 作成日: ${b.createdAt.slice(0, 19)}`);
+      }
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : error
+      );
+      process.exit(1);
+    }
+  });
+
+// --- generate ---
+program
+  .command("generate [project]")
+  .description("プロジェクトの CLAUDE.md を Mnemo の知識から自動生成")
+  .option("--dry-run", "ファイルに書き出さず内容を標準出力に表示")
+  .action(async (projectArg: string | undefined, opts) => {
+    try {
+      let projectName = projectArg;
+      if (!projectName) {
+        const detected = await detectProject(process.cwd());
+        if (!detected) {
+          console.error(
+            "Error: プロジェクト名を指定するか、登録済みプロジェクトのディレクトリで実行してください。"
+          );
+          process.exit(1);
+        }
+        projectName = detected.name;
+      }
+
+      if (opts.dryRun) {
+        const content = await generateClaudeMdSection(projectName);
+        console.log(content);
+      } else {
+        const filePath = await writeClaudeMd(projectName);
+        console.log(`CLAUDE.md を生成しました: ${filePath}`);
       }
     } catch (error) {
       console.error(
