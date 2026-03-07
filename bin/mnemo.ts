@@ -26,6 +26,17 @@ import {
 } from "../src/core/backup.js";
 import type { KnowledgeType, TaskStatus, TaskPriority } from "../src/types/index.js";
 
+/** UTC ISO文字列をローカルタイムゾーンの "YYYY-MM-DD HH:mm" に変換 */
+function formatLocalTime(isoString: string): string {
+  const d = new Date(isoString);
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const h = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${y}-${mo}-${day} ${h}:${min}`;
+}
+
 program
   .name("mnemo")
   .description("Mnemo - Knowledge memory system for Claude Code")
@@ -402,7 +413,7 @@ taskCmd
         const pri = priorityLabel[t.priority] ?? t.priority;
         let line = `  [${pri}] ${icon} ${t.title} (${t.id.slice(0, 8)})`;
         if (t.completedAt)
-          line += ` — 完了: ${t.completedAt.slice(0, 16).replace("T", " ")}`;
+          line += ` — 完了: ${formatLocalTime(t.completedAt)}`;
         console.log(line);
         if (t.description) console.log(`       ${t.description.slice(0, 100)}`);
       }

@@ -28,6 +28,17 @@ import {
 } from "./core/backup.js";
 import type { KnowledgeType, TaskStatus, TaskPriority } from "./types/index.js";
 
+/** UTC ISO文字列をローカルタイムゾーンの "YYYY-MM-DD HH:mm" に変換 */
+function formatLocalTime(isoString: string): string {
+  const d = new Date(isoString);
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const h = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${y}-${mo}-${day} ${h}:${min}`;
+}
+
 const server = new McpServer({
   name: "mnemo",
   version: "0.2.0",
@@ -571,7 +582,7 @@ server.tool(
             const icon = statusIcon[t.status] ?? "[ ]";
             const pri = priorityLabel[t.priority] ?? t.priority;
             let line = `${icon} [${pri}] ${t.title} (${t.id.slice(0, 8)})`;
-            if (t.completedAt) line += ` — 完了: ${t.completedAt.slice(0, 16).replace("T", " ")}`;
+            if (t.completedAt) line += ` — 完了: ${formatLocalTime(t.completedAt)}`;
             if (t.description) line += `\n    ${t.description.slice(0, 100)}`;
             return line;
           });
