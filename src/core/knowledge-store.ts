@@ -6,6 +6,7 @@ import {
   resolveKnowledgeById,
   countKnowledgeEntries,
   getAllKnowledgeEntries,
+  batchUpdateConfidence,
 } from "../db/lance-client.js";
 import { hybridSearch } from "./hybrid-search.js";
 import type {
@@ -54,7 +55,24 @@ export async function recall(
   query: string,
   options?: SearchOptions
 ): Promise<SearchResult[]> {
-  return hybridSearch(query, options);
+  const results = await hybridSearch(query, options);
+
+  // Boost confidence of accessed entries (fire and forget)
+  if (results.length > 0) {
+    const boosts = results
+      .filter((r) => r.confidence < 1.0)
+      .map((r) => ({
+        id: r.id,
+        confidence: Math.min(1.0, r.confidence + 0.1),
+      }));
+    if (boosts.length > 0) {
+      batchUpdateConfidence(boosts).catch(() => {
+        // Non-critical: ignore boost failures
+      });
+    }
+  }
+
+  return results;
 }
 
 export async function remove(id: string): Promise<KnowledgeEntry> {
@@ -90,4 +108,46 @@ export async function stats(): Promise<KnowledgeStats> {
   }
 
   return { totalEntries: count, byType, byProject, byLanguage };
+}
+
+/** Confidence decay half-life in days (6 months) */
+const CONFIDENCE_HALF_LIFE = 180;
+
+/** Minimum confidence floor (entries never fully disappear) */
+const CONFIDENCE_FLOOR = 0.1;
+
+/**
+ * Apply time-based confidence decay to all knowledge entries.
+ * Uses exponential decay based on age since last update.
+ *
+ * Formula: confidence = max(FLOOR, e^(-ageDays / HALF_LIFE))
+ *
+ * Returns the number of entries updated.
+ */
+export async function decayConfidence(): Promise<number> {
+  const entries = await getAllKnowledgeEntries();
+  const now = Date.now();
+
+  const updates: { id: string; confidence: number }[] = [];
+
+  for (const entry of entries) {
+    const ageMs = now - new Date(entry.updatedAt).getTime();
+    const ageDays = ageMs / (1000 * 60 * 60 * 24);
+
+    const newConfidence = Math.max(
+      CONFIDENCE_FLOOR,
+      Math.exp(-ageDays / CONFIDENCE_HALF_LIFE)
+    );
+
+    // Only update if change is significant (> 0.01)
+    if (Math.abs(entry.confidence - newConfidence) > 0.01) {
+      updates.push({ id: entry.id, confidence: newConfidence });
+    }
+  }
+
+  if (updates.length > 0) {
+    await batchUpdateConfidence(updates);
+  }
+
+  return updates.length;
 }

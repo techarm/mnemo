@@ -200,24 +200,36 @@ export function updateStoredVersion(): void {
 
 /**
  * Check if migration is needed and auto-backup before migration.
+ * Also runs periodic maintenance tasks (confidence decay).
  */
 export async function checkAndMigrate(): Promise<string | null> {
   const stored = getStoredVersion();
+  let migrated: string | null = null;
 
-  if (stored === SCHEMA_VERSION) {
-    return null; // No migration needed
+  if (stored !== SCHEMA_VERSION) {
+    // Auto-backup before any migration
+    if (stored !== null) {
+      const backupPath = await createBackup();
+      console.error(
+        `[Mnemo] スキーマ更新検出 (${stored} → ${SCHEMA_VERSION})。自動バックアップ作成: ${backupPath}`
+      );
+    }
+
+    // Update version
+    updateStoredVersion();
+    migrated = stored;
   }
 
-  // Auto-backup before any migration
-  if (stored !== null) {
-    const backupPath = await createBackup();
-    console.error(
-      `[Mnemo] スキーマ更新検出 (${stored} → ${SCHEMA_VERSION})。自動バックアップ作成: ${backupPath}`
-    );
+  // Run periodic maintenance (confidence decay) on every startup
+  try {
+    const { decayConfidence } = await import("./knowledge-store.js");
+    const decayed = await decayConfidence();
+    if (decayed > 0) {
+      console.error(`[Mnemo] 信頼度減衰: ${decayed}件のナレッジを更新しました`);
+    }
+  } catch {
+    // Non-critical: ignore decay errors on startup
   }
 
-  // Update version
-  updateStoredVersion();
-
-  return stored;
+  return migrated;
 }

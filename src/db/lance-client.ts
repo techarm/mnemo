@@ -136,6 +136,57 @@ export async function resolveKnowledgeById(
   return matches[0];
 }
 
+/**
+ * Update the confidence value of a knowledge entry.
+ * Uses delete + re-add since LanceDB doesn't support in-place row updates.
+ */
+export async function updateKnowledgeConfidence(
+  id: string,
+  confidence: number
+): Promise<void> {
+  const table = await getKnowledgeTable();
+  const results = (await table
+    .query()
+    .where(`id = '${id}'`)
+    .toArray()) as unknown as KnowledgeEntry[];
+
+  if (results.length === 0) return;
+
+  const entry = { ...results[0], confidence };
+  await table.delete(`id = '${id}'`);
+  await table.add([entry as unknown as Record<string, unknown>]);
+}
+
+/**
+ * Batch update confidence for multiple entries.
+ * More efficient than individual updates for bulk decay operations.
+ */
+export async function batchUpdateConfidence(
+  updates: { id: string; confidence: number }[]
+): Promise<void> {
+  if (updates.length === 0) return;
+
+  const table = await getKnowledgeTable();
+  const all = (await table.query().limit(10000).toArray()) as unknown as KnowledgeEntry[];
+
+  const updateMap = new Map(updates.map((u) => [u.id, u.confidence]));
+  const toUpdate = all.filter((e) => updateMap.has(e.id));
+
+  if (toUpdate.length === 0) return;
+
+  // Delete all entries that need updating
+  for (const entry of toUpdate) {
+    await table.delete(`id = '${entry.id}'`);
+  }
+
+  // Re-add with updated confidence
+  const updated = toUpdate.map((e) => ({
+    ...e,
+    confidence: updateMap.get(e.id)!,
+  }));
+  await table.add(updated as unknown as Record<string, unknown>[]);
+}
+
 export async function countKnowledgeEntries(): Promise<number> {
   const table = await getKnowledgeTable();
   return table.countRows();

@@ -4,7 +4,7 @@
 ユーザーが手書きした内容はここに書きます。
 
 <!-- MNEMO:START - この部分は Mnemo が自動生成します。手動で編集しないでください -->
-<!-- 最終更新: 2026-03-07 18:19 -->
+<!-- 最終更新: 2026-03-07 19:25 -->
 
 ## プロジェクト情報
 - **名前:** mnemo
@@ -18,8 +18,6 @@
 - **LanceDBのFTSインデックスはデータ追加後に再構築が必要** _(グローバル)_: LanceDBではデータを追加した後、FTSインデックスを replace: true オプションで再作成しないと新しいデータが全文検索にヒットしない。addKnowledgeEntry の後に rebuildFtsIndexes を呼ぶ必要がある。
 
 ## 📋 Active Tasks
-- [ ] [中] CLAUDE.md 自動生成
-- [ ] [中] session-review スキルの作成
 - [ ] [低] code-reuse-finder スキルの作成
 - [ ] [低] 知識の信頼度減衰システム
 - [ ] [低] Obsidian Vault 連携エクスポート
