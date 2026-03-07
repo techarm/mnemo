@@ -402,7 +402,7 @@ taskCmd
         const pri = priorityLabel[t.priority] ?? t.priority;
         let line = `  [${pri}] ${icon} ${t.title} (${t.id.slice(0, 8)})`;
         if (t.completedAt)
-          line += ` — 完了: ${t.completedAt.slice(0, 10)}`;
+          line += ` — 完了: ${t.completedAt.slice(0, 16).replace("T", " ")}`;
         console.log(line);
         if (t.description) console.log(`       ${t.description.slice(0, 100)}`);
       }

@@ -571,7 +571,7 @@ server.tool(
             const icon = statusIcon[t.status] ?? "[ ]";
             const pri = priorityLabel[t.priority] ?? t.priority;
             let line = `${icon} [${pri}] ${t.title} (${t.id.slice(0, 8)})`;
-            if (t.completedAt) line += ` — 完了: ${t.completedAt.slice(0, 10)}`;
+            if (t.completedAt) line += ` — 完了: ${t.completedAt.slice(0, 16).replace("T", " ")}`;
             if (t.description) line += `\n    ${t.description.slice(0, 100)}`;
             return line;
           });
