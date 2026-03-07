@@ -163,6 +163,7 @@ mnemo backup list             バックアップ一覧
 | session-review | `/session-review` | セッション終了時の振り返り（知識・タスク・ドキュメント・CLAUDE.md） |
 | doc | `/doc init` | 既存プロジェクトのドキュメント一括作成 |
 | doc | `/doc [topic]` | 個別ドキュメントの作成・更新 |
+| code-reuse-finder | `/code-reuse-finder` | コードベースの重複・共通化候補を検出してレポート |
 
 ## フック
 
