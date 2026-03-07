@@ -101,6 +101,41 @@ export async function deleteKnowledgeEntry(id: string): Promise<void> {
   await table.delete(`id = "${id}"`);
 }
 
+export async function getKnowledgeById(id: string): Promise<KnowledgeEntry | null> {
+  const table = await getKnowledgeTable();
+  const results = (await table
+    .query()
+    .where(`id = '${id}'`)
+    .toArray()) as unknown as KnowledgeEntry[];
+  return results.length > 0 ? results[0] : null;
+}
+
+/**
+ * Resolve a partial (prefix) knowledge ID to a full entry.
+ * Like git's short commit hash: if the prefix uniquely matches, return it.
+ */
+export async function resolveKnowledgeById(
+  partialId: string
+): Promise<KnowledgeEntry> {
+  const exact = await getKnowledgeById(partialId);
+  if (exact) return exact;
+
+  const table = await getKnowledgeTable();
+  const all = (await table.query().limit(10000).toArray()) as unknown as KnowledgeEntry[];
+  const matches = all.filter((e) => e.id.startsWith(partialId));
+
+  if (matches.length === 0) {
+    throw new Error(`ナレッジが見つかりません: ${partialId}`);
+  }
+  if (matches.length > 1) {
+    const ids = matches.map((e) => `  ${e.id.slice(0, 12)}... ${e.title}`).join("\n");
+    throw new Error(
+      `ID "${partialId}" は複数のナレッジに一致します。もう少し長いIDを指定してください:\n${ids}`
+    );
+  }
+  return matches[0];
+}
+
 export async function countKnowledgeEntries(): Promise<number> {
   const table = await getKnowledgeTable();
   return table.countRows();
@@ -108,5 +143,5 @@ export async function countKnowledgeEntries(): Promise<number> {
 
 export async function getAllKnowledgeEntries(): Promise<KnowledgeEntry[]> {
   const table = await getKnowledgeTable();
-  return table.query().toArray() as unknown as KnowledgeEntry[];
+  return table.query().limit(10000).toArray() as unknown as KnowledgeEntry[];
 }

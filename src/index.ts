@@ -3,7 +3,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { learn, recall, stats } from "./core/knowledge-store.js";
+import { learn, recall, stats, remove } from "./core/knowledge-store.js";
 import { exportToMarkdown } from "./core/exporter.js";
 import {
   registerProject,
@@ -11,6 +11,7 @@ import {
   getProject,
   detectProject,
   getProjectStats,
+  removeProject,
 } from "./core/project-store.js";
 import {
   addTask,
@@ -753,6 +754,82 @@ server.tool(
           {
             type: "text" as const,
             text: `Backup operation failed: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+// --- mnemo_delete ---
+server.tool(
+  "mnemo_delete",
+  "Delete a knowledge entry, task, or project from Mnemo. Supports short ID prefix matching (like git short hashes). Deleting a project also removes all its tasks (cascade delete).",
+  {
+    type: z
+      .enum(["knowledge", "task", "project"])
+      .describe("Type of entry to delete"),
+    id: z
+      .string()
+      .describe("ID or short prefix of the entry to delete"),
+  },
+  async (args) => {
+    try {
+      switch (args.type) {
+        case "knowledge": {
+          const entry = await remove(args.id);
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `ナレッジを削除しました: [${entry.type}] ${entry.title} (${entry.id.slice(0, 8)})`,
+              },
+            ],
+          };
+        }
+
+        case "task": {
+          const task = await removeTask(args.id);
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `タスクを削除しました: ${task.title} (${task.id.slice(0, 8)})`,
+              },
+            ],
+          };
+        }
+
+        case "project": {
+          const { project, deletedTasks } = await removeProject(args.id);
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `プロジェクトを削除しました: ${project.name} (${project.id.slice(0, 8)})\n紐づくタスク ${deletedTasks}件 も削除しました。`,
+              },
+            ],
+          };
+        }
+
+        default:
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `Unknown type: ${args.type}`,
+              },
+            ],
+            isError: true,
+          };
+      }
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Delete failed: ${error instanceof Error ? error.message : String(error)}`,
           },
         ],
         isError: true,

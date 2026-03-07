@@ -3,6 +3,7 @@ import { embedText } from "../embedding/ollama.js";
 import {
   addKnowledgeEntry,
   deleteKnowledgeEntry,
+  resolveKnowledgeById,
   countKnowledgeEntries,
   getAllKnowledgeEntries,
 } from "../db/lance-client.js";
@@ -56,8 +57,10 @@ export async function recall(
   return hybridSearch(query, options);
 }
 
-export async function remove(id: string): Promise<void> {
-  await deleteKnowledgeEntry(id);
+export async function remove(id: string): Promise<KnowledgeEntry> {
+  const entry = await resolveKnowledgeById(id);
+  await deleteKnowledgeEntry(entry.id);
+  return entry;
 }
 
 export interface KnowledgeStats {

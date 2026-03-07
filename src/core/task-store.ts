@@ -155,9 +155,10 @@ export async function updateTask(
   };
 }
 
-export async function removeTask(taskId: string): Promise<void> {
+export async function removeTask(taskId: string): Promise<TaskEntry> {
   const existing = await resolveTaskById(taskId);
   await deleteTaskEntry(existing.id);
+  return existing;
 }
 
 export async function getTaskTree(

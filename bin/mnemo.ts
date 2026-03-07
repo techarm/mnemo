@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { program } from "commander";
-import { learn, recall, stats } from "../src/core/knowledge-store.js";
+import { learn, recall, stats, remove } from "../src/core/knowledge-store.js";
 import { exportToMarkdown } from "../src/core/exporter.js";
 import {
   registerProject,
@@ -9,12 +9,14 @@ import {
   getProject,
   detectProject,
   getProjectStats,
+  removeProject,
 } from "../src/core/project-store.js";
 import {
   addTask,
   listTasks,
   updateTask,
   updateTaskStatus,
+  removeTask,
 } from "../src/core/task-store.js";
 import {
   createBackup,
@@ -509,6 +511,62 @@ backupCmd
       for (const [i, b] of backups.entries()) {
         console.log(`  ${i + 1}. ${b.path}`);
         console.log(`     サイズ: ${b.size} | 作成日: ${b.createdAt.slice(0, 19)}`);
+      }
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : error
+      );
+      process.exit(1);
+    }
+  });
+
+// --- delete ---
+const deleteCmd = program
+  .command("delete")
+  .description("ナレッジ・タスク・プロジェクトの削除（短縮ID対応）");
+
+deleteCmd
+  .command("knowledge <id>")
+  .description("ナレッジを削除")
+  .action(async (id: string) => {
+    try {
+      const entry = await remove(id);
+      console.log(`ナレッジを削除しました: [${entry.type}] ${entry.title} (${entry.id.slice(0, 8)})`);
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : error
+      );
+      process.exit(1);
+    }
+  });
+
+deleteCmd
+  .command("task <id>")
+  .description("タスクを削除")
+  .action(async (id: string) => {
+    try {
+      const task = await removeTask(id);
+      console.log(`タスクを削除しました: ${task.title} (${task.id.slice(0, 8)})`);
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : error
+      );
+      process.exit(1);
+    }
+  });
+
+deleteCmd
+  .command("project <id>")
+  .description("プロジェクトを削除（紐づくタスクもカスケード削除）")
+  .action(async (id: string) => {
+    try {
+      const { project, deletedTasks } = await removeProject(id);
+      console.log(`プロジェクトを削除しました: ${project.name} (${project.id.slice(0, 8)})`);
+      if (deletedTasks > 0) {
+        console.log(`  紐づくタスク ${deletedTasks}件 も削除しました。`);
       }
     } catch (error) {
       console.error(

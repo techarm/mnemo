@@ -61,7 +61,7 @@ export async function getProjectByPath(
 
 export async function getAllProjects(): Promise<ProjectEntry[]> {
   const table = await getProjectTable();
-  return table.query().toArray() as unknown as ProjectEntry[];
+  return table.query().limit(10000).toArray() as unknown as ProjectEntry[];
 }
 
 export async function updateProject(
@@ -83,6 +83,46 @@ export async function updateProject(
   };
   await table.delete(`id = '${id}'`);
   await table.add([updated as unknown as Record<string, unknown>]);
+}
+
+export async function getProjectById(
+  id: string
+): Promise<ProjectEntry | null> {
+  const table = await getProjectTable();
+  const results = (await table
+    .query()
+    .where(`id = '${id}'`)
+    .toArray()) as unknown as ProjectEntry[];
+  return results.length > 0 ? results[0] : null;
+}
+
+/**
+ * Resolve a partial (prefix) project ID to a full entry.
+ */
+export async function resolveProjectById(
+  partialId: string
+): Promise<ProjectEntry> {
+  const exact = await getProjectById(partialId);
+  if (exact) return exact;
+
+  const all = await getAllProjects();
+  const matches = all.filter((p) => p.id.startsWith(partialId));
+
+  if (matches.length === 0) {
+    throw new Error(`プロジェクトが見つかりません: ${partialId}`);
+  }
+  if (matches.length > 1) {
+    const ids = matches.map((p) => `  ${p.id.slice(0, 12)}... ${p.name}`).join("\n");
+    throw new Error(
+      `ID "${partialId}" は複数のプロジェクトに一致します。もう少し長いIDを指定してください:\n${ids}`
+    );
+  }
+  return matches[0];
+}
+
+export async function deleteProject(id: string): Promise<void> {
+  const table = await getProjectTable();
+  await table.delete(`id = '${id}'`);
 }
 
 // ============================================================
@@ -123,6 +163,7 @@ export async function getTasksByProject(
   return table
     .query()
     .where(`\`projectId\` = '${projectId}'`)
+    .limit(10000)
     .toArray() as unknown as Promise<TaskEntry[]>;
 }
 
@@ -151,6 +192,7 @@ export async function resolveTaskById(
   const table = await getTaskTable();
   const allTasks = (await table
     .query()
+    .limit(10000)
     .toArray()) as unknown as TaskEntry[];
 
   const matches = allTasks.filter((t) =>
@@ -198,5 +240,5 @@ export async function deleteTaskEntry(id: string): Promise<void> {
 
 export async function getAllTasks(): Promise<TaskEntry[]> {
   const table = await getTaskTable();
-  return table.query().toArray() as unknown as TaskEntry[];
+  return table.query().limit(10000).toArray() as unknown as TaskEntry[];
 }

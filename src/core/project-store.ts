@@ -7,6 +7,9 @@ import {
   getAllProjects,
   updateProject,
   getTasksByProject,
+  resolveProjectById,
+  deleteProject,
+  deleteTaskEntry,
 } from "../db/project-client.js";
 import { getAllKnowledgeEntries } from "../db/lance-client.js";
 
@@ -82,6 +85,21 @@ export async function detectProject(
     .sort((a, b) => b.path.length - a.path.length); // Most specific first
 
   return matches.length > 0 ? matches[0] : null;
+}
+
+export async function removeProject(
+  projectId: string
+): Promise<{ project: ProjectEntry; deletedTasks: number }> {
+  const project = await resolveProjectById(projectId);
+
+  // Cascade delete: remove all tasks belonging to this project
+  const tasks = await getTasksByProject(project.id);
+  for (const task of tasks) {
+    await deleteTaskEntry(task.id);
+  }
+
+  await deleteProject(project.id);
+  return { project, deletedTasks: tasks.length };
 }
 
 export async function getProjectStats(
