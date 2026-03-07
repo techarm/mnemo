@@ -23,7 +23,8 @@ src/
 │   ├── claude-md-generator.ts # CLAUDE.md マーカーベース生成
 │   ├── doc-store.ts         # 仕様ドキュメント CRUD
 │   ├── backup.ts            # バックアップ・リストア・起動時メンテナンス
-│   └── exporter.ts          # Markdown エクスポート
+│   ├── exporter.ts          # Markdown エクスポート
+│   └── obsidian-exporter.ts # Obsidian Vault エクスポート
 ├── db/                      # データベース層
 │   ├── lance-client.ts      # LanceDB 接続 + knowledge テーブル操作
 │   ├── project-client.ts    # projects / tasks テーブル操作
@@ -48,8 +49,10 @@ hooks/
 │   └── index.json           # ドキュメントメタデータ
 ├── skills/
 │   ├── learn/SKILL.md       # /learn スキル
+│   ├── research/SKILL.md    # /research スキル（Web+Context7調査→reference保存）
 │   ├── session-review/SKILL.md # /session-review スキル
-│   └── doc/SKILL.md         # /doc スキル
+│   ├── doc/SKILL.md         # /doc スキル
+│   └── code-reuse-finder/SKILL.md # /code-reuse-finder スキル
 └── settings.local.json      # Bash コマンドホワイトリスト
 ```
 
@@ -79,6 +82,8 @@ hooks/
 ### 型定義（src/types/index.ts）
 
 - `KnowledgeEntry` — 知識エントリ（vector, confidence, accessCount 含む）
+  - `type`: lesson / pitfall / preference / pattern / solution / reference
+  - reference 固有フィールド: `rawContent`（全文キャッシュ）, `sourceUrl`, `sourceType`（web/context7）, `fetchedAt`, `ttlDays`
 - `ProjectEntry` — プロジェクト（name, path, techStack）
 - `TaskEntry` — タスク（status, priority, parentId で階層化）
 - `DocEntry` / `DocIndex` — 仕様ドキュメントメタデータ
@@ -90,6 +95,7 @@ hooks/
 - **FTS インデックスは再構築が必要**: データ追加後に `replace: true` で再作成しないと新データが検索にヒットしない
 - **Ollama 依存**: 埋め込み生成に Ollama が起動している必要がある。停止中は knowledge 関連操作が全て失敗する
 - **delete + re-add パターン**: LanceDB に UPDATE がないため、更新は削除→再追加。クラッシュ時の不整合リスクあり
+- **スキーマ進化は読み取り時正規化**: 新カラム追加時、古い行は `undefined` → `normalizeKnowledgeEntry()` でデフォルト値を埋めて後方互換を維持
 
 ## 関連
 
