@@ -5,6 +5,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { learn, recall, stats, remove } from "./core/knowledge-store.js";
 import { exportToMarkdown } from "./core/exporter.js";
+import { exportToObsidian } from "./core/obsidian-exporter.js";
 import {
   generateClaudeMdSection,
   writeClaudeMd,
@@ -256,20 +257,40 @@ server.tool(
 // --- mnemo_export ---
 server.tool(
   "mnemo_export",
-  "Export knowledge entries to Markdown files for reading or blog use.",
+  "Export knowledge to files. Supports two formats: 'markdown' (flat grouped files) and 'obsidian' (vault with YAML frontmatter, wikilinks, and folder structure for all data types).",
   {
     outputDir: z
       .string()
       .optional()
-      .describe("Output directory (defaults to ~/.mnemo/exports/)"),
+      .describe("Output directory (defaults to ~/.mnemo/exports/ for markdown, ~/.mnemo/obsidian-vault/ for obsidian)"),
+    format: z
+      .enum(["markdown", "obsidian"])
+      .optional()
+      .default("markdown")
+      .describe("Export format: markdown (knowledge only, flat files) or obsidian (all data with frontmatter and wikilinks)"),
     type: z
       .enum(["lesson", "pitfall", "preference", "pattern", "solution"])
       .optional()
-      .describe("Filter by type"),
+      .describe("Filter by knowledge type"),
     project: z.string().optional().describe("Filter by project"),
   },
   async (args) => {
     try {
+      if (args.format === "obsidian") {
+        const result = await exportToObsidian(args.outputDir, {
+          type: args.type,
+          project: args.project,
+        });
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `Obsidian vault exported to: ${result.dir}\n  Knowledge: ${result.counts.knowledge}, Projects: ${result.counts.projects}, Tasks: ${result.counts.tasks}, Docs: ${result.counts.docs}`,
+            },
+          ],
+        };
+      }
+
       const dir = await exportToMarkdown(args.outputDir, {
         type: args.type,
         project: args.project,

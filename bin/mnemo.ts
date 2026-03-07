@@ -3,6 +3,7 @@
 import { program } from "commander";
 import { learn, recall, stats, remove } from "../src/core/knowledge-store.js";
 import { exportToMarkdown } from "../src/core/exporter.js";
+import { exportToObsidian } from "../src/core/obsidian-exporter.js";
 import {
   generateClaudeMdSection,
   writeClaudeMd,
@@ -186,17 +187,33 @@ program
 // --- export ---
 program
   .command("export")
-  .description("Export knowledge to Markdown files")
+  .description("Export knowledge to Markdown or Obsidian vault")
   .option("-o, --output <dir>", "Output directory")
   .option("-t, --type <type>", "Filter by type")
   .option("-p, --project <project>", "Filter by project")
+  .option(
+    "-f, --format <format>",
+    "Export format: markdown or obsidian",
+    "markdown"
+  )
   .action(async (opts) => {
     try {
-      const dir = await exportToMarkdown(opts.output, {
-        type: opts.type,
-        project: opts.project,
-      });
-      console.log(`Exported to: ${dir}`);
+      if (opts.format === "obsidian") {
+        const result = await exportToObsidian(opts.output, {
+          type: opts.type,
+          project: opts.project,
+        });
+        console.log(`Obsidian vault exported to: ${result.dir}`);
+        console.log(
+          `  Knowledge: ${result.counts.knowledge}, Projects: ${result.counts.projects}, Tasks: ${result.counts.tasks}, Docs: ${result.counts.docs}`
+        );
+      } else {
+        const dir = await exportToMarkdown(opts.output, {
+          type: opts.type,
+          project: opts.project,
+        });
+        console.log(`Exported to: ${dir}`);
+      }
     } catch (error) {
       console.error(
         "Error:",
