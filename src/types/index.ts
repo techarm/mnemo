@@ -95,6 +95,27 @@ export interface TaskTreeNode {
   children: TaskTreeNode[];
 }
 
+// --- Doc types ---
+
+export type DocScope = "global" | "feature" | "api";
+
+export interface DocEntry {
+  id: string; // URL-safe slug
+  filename: string;
+  title: string;
+  summary: string; // 120文字以内
+  scope: DocScope;
+  relatedFiles: string[]; // プロジェクトルートからの相対パス
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DocIndex {
+  version: "1.0";
+  docs: DocEntry[];
+}
+
 export function getConfig(): MnemoConfig {
   return {
     dataDir: process.env.MNEMO_DATA_DIR || `${process.env.HOME}/.mnemo`,

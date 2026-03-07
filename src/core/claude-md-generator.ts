@@ -3,6 +3,7 @@ import * as path from "node:path";
 import { getAllKnowledgeEntries } from "../db/lance-client.js";
 import { getTasksByProject } from "../db/project-client.js";
 import { getProject } from "./project-store.js";
+import { getDocsSummary } from "./doc-store.js";
 import type { KnowledgeEntry, TaskEntry } from "../types/index.js";
 
 const MARKER_START =
@@ -103,6 +104,12 @@ export async function generateClaudeMdSection(
   if (techStack.length > 0)
     lines.push(`- **技術スタック:** ${techStack.join(", ")}`);
   lines.push("");
+
+  // ドキュメントセクション
+  const docsSummary = await getDocsSummary(projectName);
+  if (docsSummary) {
+    lines.push(docsSummary);
+  }
 
   // 知識セクション（エントリがあるタイプのみ出力）
   for (const sec of SECTION_CONFIG) {

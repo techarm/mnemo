@@ -28,7 +28,13 @@ import {
   listBackups,
   checkAndMigrate,
 } from "../src/core/backup.js";
-import type { KnowledgeType, TaskStatus, TaskPriority } from "../src/types/index.js";
+import {
+  createDoc,
+  listDocs,
+  getDoc,
+  deleteDoc,
+} from "../src/core/doc-store.js";
+import type { KnowledgeType, TaskStatus, TaskPriority, DocScope } from "../src/types/index.js";
 
 /** UTC ISO文字列をローカルタイムゾーンの "YYYY-MM-DD HH:mm" に変換 */
 function formatLocalTime(isoString: string): string {
@@ -618,6 +624,121 @@ deleteCmd
       if (deletedTasks > 0) {
         console.log(`  紐づくタスク ${deletedTasks}件 も削除しました。`);
       }
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : error
+      );
+      process.exit(1);
+    }
+  });
+
+// --- doc ---
+const docCmd = program.command("doc").description("プロジェクト仕様ドキュメント管理");
+
+docCmd
+  .command("create <title>")
+  .description("ドキュメントを作成")
+  .requiredOption("-p, --project <project>", "プロジェクト名")
+  .requiredOption("-s, --summary <summary>", "一行サマリー（120文字以内）")
+  .option("--scope <scope>", "スコープ: global, feature, api", "feature")
+  .option("--id <id>", "カスタムID/スラッグ")
+  .option("--tags <tags>", "カンマ区切りのタグ")
+  .option("--related <files>", "カンマ区切りの関連ファイルパス")
+  .option("-c, --content <content>", "Markdownコンテンツ（省略時は空）")
+  .action(async (title: string, opts) => {
+    try {
+      const doc = await createDoc({
+        projectName: opts.project,
+        title,
+        content: opts.content ?? "",
+        summary: opts.summary,
+        scope: opts.scope as DocScope,
+        relatedFiles: opts.related
+          ? opts.related.split(",").map((f: string) => f.trim())
+          : undefined,
+        tags: opts.tags
+          ? opts.tags.split(",").map((t: string) => t.trim())
+          : undefined,
+        id: opts.id,
+      });
+      console.log(`ドキュメントを作成しました: ${doc.title} (${doc.id})`);
+      console.log(`  File: .claude/docs/${doc.filename}`);
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : error
+      );
+      process.exit(1);
+    }
+  });
+
+docCmd
+  .command("list")
+  .description("ドキュメント一覧")
+  .option("-p, --project <project>", "プロジェクト名")
+  .action(async (opts) => {
+    try {
+      let projectName = opts.project;
+      if (!projectName) {
+        const detected = await detectProject(process.cwd());
+        if (!detected) {
+          console.error(
+            "Error: --project を指定するか、登録済みプロジェクトのディレクトリで実行してください。"
+          );
+          process.exit(1);
+        }
+        projectName = detected.name;
+      }
+      const docs = await listDocs(projectName);
+      if (docs.length === 0) {
+        console.log(`${projectName} のドキュメントはありません。`);
+        return;
+      }
+      console.log(`${projectName} のドキュメント (${docs.length}件):\n`);
+      for (const d of docs) {
+        console.log(`  [${d.scope}] ${d.title} (${d.id})`);
+        console.log(`    ${d.summary}`);
+        console.log();
+      }
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : error
+      );
+      process.exit(1);
+    }
+  });
+
+docCmd
+  .command("get <id>")
+  .description("ドキュメントの内容を表示")
+  .requiredOption("-p, --project <project>", "プロジェクト名")
+  .action(async (id: string, opts) => {
+    try {
+      const doc = await getDoc(opts.project, id);
+      console.log(`# ${doc.title}\n`);
+      console.log(`Scope: ${doc.scope} | Tags: ${doc.tags.join(", ") || "-"}`);
+      console.log(`Related: ${doc.relatedFiles.join(", ") || "-"}`);
+      console.log(`Updated: ${formatLocalTime(doc.updatedAt)}`);
+      console.log(`\n${doc.content}`);
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : error
+      );
+      process.exit(1);
+    }
+  });
+
+docCmd
+  .command("delete <id>")
+  .description("ドキュメントを削除")
+  .requiredOption("-p, --project <project>", "プロジェクト名")
+  .action(async (id: string, opts) => {
+    try {
+      const deleted = await deleteDoc(opts.project, id);
+      console.log(`ドキュメントを削除しました: ${deleted.title} (${deleted.id})`);
     } catch (error) {
       console.error(
         "Error:",

@@ -30,7 +30,14 @@ import {
   listBackups,
   checkAndMigrate,
 } from "./core/backup.js";
-import type { KnowledgeType, TaskStatus, TaskPriority } from "./types/index.js";
+import {
+  createDoc,
+  listDocs,
+  getDoc,
+  updateDoc,
+  deleteDoc,
+} from "./core/doc-store.js";
+import type { KnowledgeType, TaskStatus, TaskPriority, DocScope } from "./types/index.js";
 
 /** UTC ISO文字列をローカルタイムゾーンの "YYYY-MM-DD HH:mm" に変換 */
 function formatLocalTime(isoString: string): string {
@@ -820,6 +827,210 @@ server.tool(
           {
             type: "text" as const,
             text: `CLAUDE.md generation failed: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+// --- mnemo_doc ---
+server.tool(
+  "mnemo_doc",
+  "Manage project specification documents stored in .claude/docs/. Create, list, read, update, or delete structured docs that Claude Code can read directly. Each doc is a Markdown file with metadata in index.json.",
+  {
+    action: z
+      .enum(["create", "list", "get", "update", "delete"])
+      .describe("Action to perform"),
+    project: z
+      .string()
+      .describe("Project name"),
+    id: z
+      .string()
+      .optional()
+      .describe("Document ID/slug (required for get/update/delete, optional for create)"),
+    title: z
+      .string()
+      .optional()
+      .describe("Document title (required for create)"),
+    content: z
+      .string()
+      .optional()
+      .describe("Markdown content body (required for create, optional for update)"),
+    summary: z
+      .string()
+      .optional()
+      .describe("One-line summary under 120 chars (required for create)"),
+    scope: z
+      .enum(["global", "feature", "api"])
+      .optional()
+      .describe("Doc scope: global (system design), feature (specific feature), api (interfaces)"),
+    relatedFiles: z
+      .array(z.string())
+      .optional()
+      .describe("Related source file paths relative to project root"),
+    tags: z
+      .array(z.string())
+      .optional()
+      .describe("Tags for categorization"),
+  },
+  async (args) => {
+    try {
+      switch (args.action) {
+        case "create": {
+          if (!args.title || !args.content || !args.summary) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: "Error: 'title', 'content', and 'summary' are required for create action.",
+                },
+              ],
+              isError: true,
+            };
+          }
+          const doc = await createDoc({
+            projectName: args.project,
+            title: args.title,
+            content: args.content,
+            summary: args.summary,
+            scope: args.scope as DocScope | undefined,
+            relatedFiles: args.relatedFiles,
+            tags: args.tags,
+            id: args.id,
+          });
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `ドキュメントを作成しました: ${doc.title}\n\nID: ${doc.id}\nFile: .claude/docs/${doc.filename}\nScope: ${doc.scope}`,
+              },
+            ],
+          };
+        }
+
+        case "list": {
+          const docs = await listDocs(args.project);
+          if (docs.length === 0) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: `${args.project} のドキュメントはありません。`,
+                },
+              ],
+            };
+          }
+          const lines = docs.map((d) =>
+            `- **${d.title}** (${d.id}) [${d.scope}]\n  ${d.summary}`
+          );
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `# ${args.project} のドキュメント (${docs.length}件)\n\n${lines.join("\n\n")}`,
+              },
+            ],
+          };
+        }
+
+        case "get": {
+          if (!args.id) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: "Error: 'id' is required for get action.",
+                },
+              ],
+              isError: true,
+            };
+          }
+          const doc = await getDoc(args.project, args.id);
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `# ${doc.title}\n\n` +
+                  `**Scope:** ${doc.scope} | **Tags:** ${doc.tags.join(", ") || "-"}\n` +
+                  `**Related files:** ${doc.relatedFiles.join(", ") || "-"}\n` +
+                  `**Updated:** ${formatLocalTime(doc.updatedAt)}\n\n---\n\n${doc.content}`,
+              },
+            ],
+          };
+        }
+
+        case "update": {
+          if (!args.id) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: "Error: 'id' is required for update action.",
+                },
+              ],
+              isError: true,
+            };
+          }
+          const updated = await updateDoc(args.project, args.id, {
+            title: args.title,
+            content: args.content,
+            summary: args.summary,
+            scope: args.scope as DocScope | undefined,
+            relatedFiles: args.relatedFiles,
+            tags: args.tags,
+          });
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `ドキュメントを更新しました: ${updated.title} (${updated.id})`,
+              },
+            ],
+          };
+        }
+
+        case "delete": {
+          if (!args.id) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: "Error: 'id' is required for delete action.",
+                },
+              ],
+              isError: true,
+            };
+          }
+          const deleted = await deleteDoc(args.project, args.id);
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `ドキュメントを削除しました: ${deleted.title} (${deleted.id})`,
+              },
+            ],
+          };
+        }
+
+        default:
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `Unknown action: ${args.action}`,
+              },
+            ],
+            isError: true,
+          };
+      }
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Doc operation failed: ${error instanceof Error ? error.message : String(error)}`,
           },
         ],
         isError: true,
