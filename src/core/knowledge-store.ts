@@ -1,0 +1,90 @@
+import { v4 as uuidv4 } from "uuid";
+import { embedText } from "../embedding/ollama.js";
+import {
+  addKnowledgeEntry,
+  deleteKnowledgeEntry,
+  countKnowledgeEntries,
+  getAllKnowledgeEntries,
+} from "../db/lance-client.js";
+import { hybridSearch } from "./hybrid-search.js";
+import type {
+  KnowledgeEntry,
+  KnowledgeType,
+  SearchOptions,
+  SearchResult,
+} from "../types/index.js";
+
+export interface LearnInput {
+  type: KnowledgeType;
+  title: string;
+  content: string;
+  project?: string;
+  tags?: string[];
+  language?: string;
+  framework?: string;
+}
+
+export async function learn(input: LearnInput): Promise<KnowledgeEntry> {
+  const textToEmbed = `${input.title}\n${input.content}`;
+  const vector = await embedText(textToEmbed);
+
+  const now = new Date().toISOString();
+  const entry: KnowledgeEntry = {
+    id: uuidv4(),
+    type: input.type,
+    title: input.title,
+    content: input.content,
+    vector,
+    project: input.project ?? "",
+    tags: JSON.stringify(input.tags ?? []),
+    language: input.language ?? "",
+    framework: input.framework ?? "",
+    confidence: 1.0,
+    accessCount: 0,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  await addKnowledgeEntry(entry);
+  return entry;
+}
+
+export async function recall(
+  query: string,
+  options?: SearchOptions
+): Promise<SearchResult[]> {
+  return hybridSearch(query, options);
+}
+
+export async function remove(id: string): Promise<void> {
+  await deleteKnowledgeEntry(id);
+}
+
+export interface KnowledgeStats {
+  totalEntries: number;
+  byType: Record<string, number>;
+  byProject: Record<string, number>;
+  byLanguage: Record<string, number>;
+}
+
+export async function stats(): Promise<KnowledgeStats> {
+  const count = await countKnowledgeEntries();
+  const entries = await getAllKnowledgeEntries();
+
+  const byType: Record<string, number> = {};
+  const byProject: Record<string, number> = {};
+  const byLanguage: Record<string, number> = {};
+
+  for (const entry of entries) {
+    byType[entry.type] = (byType[entry.type] ?? 0) + 1;
+
+    const proj = entry.project || "(global)";
+    byProject[proj] = (byProject[proj] ?? 0) + 1;
+
+    if (entry.language) {
+      byLanguage[entry.language] = (byLanguage[entry.language] ?? 0) + 1;
+    }
+  }
+
+  return { totalEntries: count, byType, byProject, byLanguage };
+}

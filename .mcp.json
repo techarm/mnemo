@@ -1,0 +1,10 @@
+{
+  "mnemo": {
+    "command": "node",
+    "args": ["${CLAUDE_PLUGIN_ROOT}/dist/src/index.js"],
+    "env": {
+      "MNEMO_DATA_DIR": "${HOME}/.mnemo",
+      "OLLAMA_URL": "http://localhost:11434"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "mnemo",
+  "version": "0.2.0",
+  "description": "Mnemo - Knowledge memory system for Claude Code",
+  "type": "module",
+  "bin": {
+    "mnemo": "./dist/bin/mnemo.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start:mcp": "node dist/src/index.js",
+    "start:cli": "node dist/bin/mnemo.js"
+  },
+  "dependencies": {
+    "@lancedb/lancedb": "^0.15.0",
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "commander": "^13.1.0",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.8.3"
+  }
+}
