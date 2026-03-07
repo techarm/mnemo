@@ -12,6 +12,12 @@ export interface KnowledgeEntry {
   accessCount: number;
   createdAt: string;
   updatedAt: string;
+  // Reference-specific fields (empty/0 for non-reference types)
+  rawContent: string; // Full fetched text cache (empty string = none)
+  sourceUrl: string; // Source URL or Context7 libraryId (empty string = none)
+  sourceType: string; // "web" | "context7" | "" (empty for non-reference)
+  fetchedAt: string; // ISO timestamp of when content was fetched (empty string = N/A)
+  ttlDays: number; // Days until expiry (0 = never expires)
 }
 
 export type KnowledgeType =
@@ -19,7 +25,8 @@ export type KnowledgeType =
   | "pitfall"
   | "preference"
   | "pattern"
-  | "solution";
+  | "solution"
+  | "reference";
 
 export interface SearchOptions {
   type?: KnowledgeType;

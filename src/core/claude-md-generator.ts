@@ -4,6 +4,7 @@ import { getAllKnowledgeEntries } from "../db/lance-client.js";
 import { getTasksByProject } from "../db/project-client.js";
 import { getProject } from "./project-store.js";
 import { getDocsSummary } from "./doc-store.js";
+import { computeTtlStatus } from "./knowledge-store.js";
 import type { KnowledgeEntry, TaskEntry } from "../types/index.js";
 
 const MARKER_START =
@@ -32,6 +33,7 @@ const SECTION_CONFIG: {
   { type: "pattern", emoji: "📐", label: "Patterns（確立されたパターン）" },
   { type: "lesson", emoji: "💡", label: "Lessons（教訓）" },
   { type: "solution", emoji: "🔧", label: "Solutions（解決策）" },
+  { type: "reference", emoji: "📚", label: "References（参照知識）" },
 ];
 
 /**
@@ -119,11 +121,27 @@ export async function generateClaudeMdSection(
     lines.push(`## ${sec.emoji} ${sec.label}`);
     for (const entry of entries) {
       const scope = entry.project === "" ? " _(グローバル)_" : "";
-      // title を太字、content を本文
-      const contentOneLine = entry.content
-        .replace(/\n/g, " ")
-        .slice(0, 200);
-      lines.push(`- **${entry.title}**${scope}: ${contentOneLine}`);
+
+      if (sec.type === "reference") {
+        // Reference: show title + sourceUrl + TTL status (no content to save context)
+        let refLine = `- **${entry.title}**${scope}`;
+        if (entry.sourceUrl) refLine += ` — ${entry.sourceUrl}`;
+        const ttl = computeTtlStatus(entry);
+        if (ttl) {
+          if (ttl.expired) {
+            refLine += ` ⚠️ 期限切れ`;
+          } else {
+            refLine += ` (残り${ttl.daysRemaining}日)`;
+          }
+        }
+        lines.push(refLine);
+      } else {
+        // Other types: title + content
+        const contentOneLine = entry.content
+          .replace(/\n/g, " ")
+          .slice(0, 200);
+        lines.push(`- **${entry.title}**${scope}: ${contentOneLine}`);
+      }
     }
     lines.push("");
   }

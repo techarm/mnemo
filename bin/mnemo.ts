@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { program } from "commander";
-import { learn, recall, stats, remove } from "../src/core/knowledge-store.js";
+import { learn, recall, stats, remove, computeTtlStatus } from "../src/core/knowledge-store.js";
 import { exportToMarkdown } from "../src/core/exporter.js";
 import { exportToObsidian } from "../src/core/obsidian-exporter.js";
 import {
@@ -51,7 +51,7 @@ function formatLocalTime(isoString: string): string {
 program
   .name("mnemo")
   .description("Mnemo - Knowledge memory system for Claude Code")
-  .version("0.2.0")
+  .version("0.3.0")
   .hook("preAction", async () => {
     await checkAndMigrate();
   });
@@ -62,13 +62,17 @@ program
   .description("Record a piece of knowledge")
   .requiredOption(
     "-t, --type <type>",
-    "Type: lesson, pitfall, preference, pattern, solution"
+    "Type: lesson, pitfall, preference, pattern, solution, reference"
   )
   .option("-c, --content <content>", "Detailed content (if omitted, title is used)")
   .option("-p, --project <project>", "Project name")
   .option("--tags <tags>", "Comma-separated tags")
   .option("-l, --language <language>", "Programming language")
   .option("-f, --framework <framework>", "Framework")
+  .option("--source-url <url>", "Source URL or Context7 libraryId (for reference type)")
+  .option("--source-type <type>", "Source type: web or context7 (for reference type)")
+  .option("--raw-content <content>", "Full fetched text content (for reference type)")
+  .option("--ttl <days>", "TTL in days (for reference type, 0 = no expiry)", "0")
   .action(async (title: string, opts) => {
     try {
       const entry = await learn({
@@ -79,8 +83,15 @@ program
         tags: opts.tags ? opts.tags.split(",").map((t: string) => t.trim()) : undefined,
         language: opts.language,
         framework: opts.framework,
+        sourceUrl: opts.sourceUrl,
+        sourceType: opts.sourceType,
+        rawContent: opts.rawContent,
+        ttlDays: parseInt(opts.ttl),
       });
-      console.log(`Stored: [${entry.type}] ${entry.title} (${entry.id})`);
+      let msg = `Stored: [${entry.type}] ${entry.title} (${entry.id})`;
+      if (entry.sourceUrl) msg += `\n  Source: ${entry.sourceUrl}`;
+      if (entry.ttlDays) msg += `\n  TTL: ${entry.ttlDays} days`;
+      console.log(msg);
     } catch (error) {
       console.error(
         "Error:",
@@ -96,7 +107,7 @@ program
   .description("Search the knowledge base (semantic + keyword)")
   .option(
     "-t, --type <type>",
-    "Filter: lesson, pitfall, preference, pattern, solution"
+    "Filter: lesson, pitfall, preference, pattern, solution, reference"
   )
   .option("-p, --project <project>", "Filter by project")
   .option("-l, --language <language>", "Filter by language")
@@ -130,6 +141,19 @@ program
         );
         if (r.project) console.log(`   Project: ${r.project}`);
         if (r.language) console.log(`   Language: ${r.language}`);
+
+        // TTL status for reference type
+        const entryData = r as unknown as Record<string, unknown>;
+        if (entryData.sourceUrl) console.log(`   Source: ${entryData.sourceUrl}`);
+        const ttl = computeTtlStatus(r as unknown as import("../src/types/index.js").KnowledgeEntry);
+        if (ttl) {
+          if (ttl.expired) {
+            console.log(`   ⚠️ TTL expired (${Math.abs(ttl.daysRemaining)} days ago)`);
+          } else {
+            console.log(`   TTL: ${ttl.daysRemaining} days remaining`);
+          }
+        }
+
         console.log(`   ${r.content.slice(0, 200)}${r.content.length > 200 ? "..." : ""}`);
         console.log();
       }

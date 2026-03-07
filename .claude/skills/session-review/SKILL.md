@@ -18,13 +18,14 @@ Look for these categories:
 - **Solutions**: Specific fixes or workarounds for concrete problems.
 - **Patterns**: Reusable approaches, architecture decisions, or workflow optimizations that worked well.
 - **Preferences**: Coding conventions or tool choices the user established or reinforced.
+- **References**: Web research results (from Web Search, WebFetch, or Context7) that were used in this session and would be valuable to persist for future sessions. Use `/research` skill or `mnemo_learn(type: "reference")` to save these.
 
 ### For each finding:
 
 1. Briefly explain what was learned and why it matters.
 2. Ask the user if they want to record it.
 3. If yes, use `mnemo_learn` with:
-   - Appropriate type (pitfall/lesson/solution/pattern/preference)
+   - Appropriate type (pitfall/lesson/solution/pattern/preference/reference)
    - Concise title (under 60 characters)
    - Detailed content including context, cause, and how to apply it
    - Detected project via `mnemo_project(action: detect)`
@@ -90,6 +91,7 @@ Summarize concisely:
 
 ### Recorded Knowledge
 - [pitfall] タイトル — 簡単な説明
+- [reference] タイトル — ソース情報
 - (none — this session had no non-trivial learnings)
 
 ### Completed Tasks

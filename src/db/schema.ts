@@ -21,5 +21,10 @@ export function createPlaceholderEntry(
     accessCount: 0,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    rawContent: "",
+    sourceUrl: "",
+    sourceType: "",
+    fetchedAt: "",
+    ttlDays: 0,
   };
 }

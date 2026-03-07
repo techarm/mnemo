@@ -43,8 +43,25 @@ export async function exportToMarkdown(
       if (item.framework) lines.push(`- **Framework:** ${item.framework}`);
       if (tags.length > 0) lines.push(`- **Tags:** ${tags.join(", ")}`);
       lines.push(`- **Date:** ${item.createdAt.split("T")[0]}`);
+
+      // Reference-specific metadata
+      if (item.type === "reference") {
+        if (item.sourceUrl) lines.push(`- **Source:** ${item.sourceUrl}`);
+        if (item.sourceType) lines.push(`- **Source Type:** ${item.sourceType}`);
+        if (item.ttlDays) lines.push(`- **TTL:** ${item.ttlDays} days`);
+      }
+
       lines.push("");
       lines.push(item.content);
+
+      // Include rawContent for reference type
+      if (item.type === "reference" && item.rawContent) {
+        lines.push("");
+        lines.push("### Full Content");
+        lines.push("");
+        lines.push(item.rawContent);
+      }
+
       lines.push("\n---\n");
     }
 

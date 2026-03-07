@@ -3,6 +3,7 @@ import { embedText } from "../embedding/ollama.js";
 import {
   addKnowledgeEntry,
   deleteKnowledgeEntry,
+  getKnowledgeById,
   resolveKnowledgeById,
   countKnowledgeEntries,
   getAllKnowledgeEntries,
@@ -24,6 +25,12 @@ export interface LearnInput {
   tags?: string[];
   language?: string;
   framework?: string;
+  // Reference-specific fields
+  rawContent?: string;
+  sourceUrl?: string;
+  sourceType?: string;
+  fetchedAt?: string;
+  ttlDays?: number;
 }
 
 export async function learn(input: LearnInput): Promise<KnowledgeEntry> {
@@ -45,6 +52,12 @@ export async function learn(input: LearnInput): Promise<KnowledgeEntry> {
     accessCount: 0,
     createdAt: now,
     updatedAt: now,
+    // Reference-specific fields
+    rawContent: input.rawContent ?? "",
+    sourceUrl: input.sourceUrl ?? "",
+    sourceType: input.sourceType ?? "",
+    fetchedAt: input.fetchedAt ?? now,
+    ttlDays: input.ttlDays ?? 0,
   };
 
   await addKnowledgeEntry(entry);
@@ -151,4 +164,69 @@ export async function decayConfidence(): Promise<number> {
   }
 
   return updates.length;
+}
+
+/**
+ * Compute TTL status for a knowledge entry.
+ * Returns null if the entry has no TTL (non-reference or ttlDays === 0).
+ */
+export function computeTtlStatus(
+  entry: KnowledgeEntry
+): { expired: boolean; daysRemaining: number } | null {
+  if (entry.type !== "reference" || entry.ttlDays === 0 || !entry.fetchedAt) {
+    return null;
+  }
+
+  const fetchedMs = new Date(entry.fetchedAt).getTime();
+  const expiresMs = fetchedMs + entry.ttlDays * 24 * 60 * 60 * 1000;
+  const nowMs = Date.now();
+  const daysRemaining = Math.ceil((expiresMs - nowMs) / (24 * 60 * 60 * 1000));
+
+  return {
+    expired: daysRemaining <= 0,
+    daysRemaining,
+  };
+}
+
+/**
+ * Update a reference entry with fresh content.
+ * Re-embeds if content changed; resets confidence to 1.0.
+ * Uses LanceDB pattern: delete + re-add.
+ */
+export async function updateReference(
+  id: string,
+  updates: { content?: string; rawContent?: string; fetchedAt?: string }
+): Promise<KnowledgeEntry> {
+  const existing = await getKnowledgeById(id);
+  if (!existing) {
+    throw new Error(`ナレッジが見つかりません: ${id}`);
+  }
+  if (existing.type !== "reference") {
+    throw new Error(`reference 型のナレッジではありません: ${id}`);
+  }
+
+  const contentChanged = updates.content && updates.content !== existing.content;
+  let vector = existing.vector;
+
+  // Re-embed if content (summary) changed
+  if (contentChanged) {
+    vector = await embedText(`${existing.title}\n${updates.content}`);
+  }
+
+  const now = new Date().toISOString();
+  const updated: KnowledgeEntry = {
+    ...existing,
+    content: updates.content ?? existing.content,
+    rawContent: updates.rawContent ?? existing.rawContent,
+    fetchedAt: updates.fetchedAt ?? now,
+    confidence: 1.0,
+    updatedAt: now,
+    vector,
+  };
+
+  // Delete + re-add (LanceDB doesn't support in-place updates)
+  await deleteKnowledgeEntry(id);
+  await addKnowledgeEntry(updated);
+
+  return updated;
 }

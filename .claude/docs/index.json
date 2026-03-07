@@ -71,13 +71,14 @@
       "relatedFiles": [
         "src/index.ts",
         "bin/mnemo.ts",
+        "src/core/obsidian-exporter.ts",
         ".claude/skills/learn/SKILL.md",
         ".claude/skills/session-review/SKILL.md",
         ".claude/skills/doc/SKILL.md"
       ],
       "tags": ["mcp", "cli", "api", "interface"],
       "createdAt": "2026-03-07T12:00:00Z",
-      "updatedAt": "2026-03-07T12:00:00Z"
+      "updatedAt": "2026-03-07T20:00:00Z"
     }
   ]
 }

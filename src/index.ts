@@ -3,7 +3,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { learn, recall, stats, remove } from "./core/knowledge-store.js";
+import { learn, recall, stats, remove, computeTtlStatus } from "./core/knowledge-store.js";
+import { getKnowledgeById } from "./db/lance-client.js";
 import { exportToMarkdown } from "./core/exporter.js";
 import { exportToObsidian } from "./core/obsidian-exporter.js";
 import {
@@ -53,21 +54,21 @@ function formatLocalTime(isoString: string): string {
 
 const server = new McpServer({
   name: "mnemo",
-  version: "0.2.0",
+  version: "0.3.0",
 });
 
 // --- mnemo_learn ---
 server.tool(
   "mnemo_learn",
-  "Store a piece of knowledge (lesson, pitfall, pattern, preference, solution) into Mnemo. Automatically generates semantic embeddings for intelligent retrieval.",
+  "Store a piece of knowledge (lesson, pitfall, pattern, preference, solution, reference) into Mnemo. Automatically generates semantic embeddings for intelligent retrieval. Use type 'reference' for web research results with TTL-based freshness tracking.",
   {
     type: z
-      .enum(["lesson", "pitfall", "preference", "pattern", "solution"])
-      .describe("Type of knowledge"),
+      .enum(["lesson", "pitfall", "preference", "pattern", "solution", "reference"])
+      .describe("Type of knowledge. Use 'reference' for web research / documentation to persist with TTL"),
     title: z.string().describe("Short title summarizing the knowledge"),
     content: z
       .string()
-      .describe("Detailed content of the knowledge entry"),
+      .describe("Detailed content / summary of the knowledge entry (used for embedding & search)"),
     project: z
       .string()
       .optional()
@@ -84,6 +85,22 @@ server.tool(
       .string()
       .optional()
       .describe("Framework (e.g. nextjs, react)"),
+    rawContent: z
+      .string()
+      .optional()
+      .describe("Full fetched text content (for reference type). Not used for embedding."),
+    sourceUrl: z
+      .string()
+      .optional()
+      .describe("Source URL or Context7 libraryId (for reference type)"),
+    sourceType: z
+      .enum(["web", "context7"])
+      .optional()
+      .describe("Source type (for reference type)"),
+    ttlDays: z
+      .number()
+      .optional()
+      .describe("Days until content expires (for reference type). 0 = never expires. Guidelines: docs 90, blog 180, news 30, spec 365"),
   },
   async (args) => {
     try {
@@ -95,13 +112,17 @@ server.tool(
         tags: args.tags,
         language: args.language,
         framework: args.framework,
+        rawContent: args.rawContent,
+        sourceUrl: args.sourceUrl,
+        sourceType: args.sourceType,
+        ttlDays: args.ttlDays,
       });
 
       return {
         content: [
           {
             type: "text" as const,
-            text: `Knowledge stored successfully!\n\nID: ${entry.id}\nType: ${entry.type}\nTitle: ${entry.title}${entry.project ? `\nProject: ${entry.project}` : ""}`,
+            text: `Knowledge stored successfully!\n\nID: ${entry.id}\nType: ${entry.type}\nTitle: ${entry.title}${entry.project ? `\nProject: ${entry.project}` : ""}${entry.sourceUrl ? `\nSource: ${entry.sourceUrl}` : ""}${entry.ttlDays ? `\nTTL: ${entry.ttlDays} days` : ""}`,
           },
         ],
       };
@@ -122,13 +143,18 @@ server.tool(
 // --- mnemo_recall ---
 server.tool(
   "mnemo_recall",
-  "Search the Mnemo knowledge base using hybrid retrieval (semantic vector search + full-text keyword search). Returns the most relevant knowledge entries ranked by a multi-dimensional score.",
+  "Search the Mnemo knowledge base using hybrid retrieval (semantic vector search + full-text keyword search). Returns the most relevant knowledge entries ranked by a multi-dimensional score. Use 'id' parameter for direct lookup with full details including rawContent.",
   {
     query: z
       .string()
-      .describe("Search query (natural language or keywords)"),
+      .optional()
+      .describe("Search query (natural language or keywords). Required unless 'id' is specified."),
+    id: z
+      .string()
+      .optional()
+      .describe("Direct lookup by ID (full or short prefix). Returns full entry including rawContent."),
     type: z
-      .enum(["lesson", "pitfall", "preference", "pattern", "solution"])
+      .enum(["lesson", "pitfall", "preference", "pattern", "solution", "reference"])
       .optional()
       .describe("Filter by knowledge type"),
     project: z.string().optional().describe("Filter by project name"),
@@ -142,6 +168,51 @@ server.tool(
   },
   async (args) => {
     try {
+      // Direct lookup by ID — returns full entry including rawContent
+      if (args.id) {
+        const { resolveKnowledgeById } = await import("./db/lance-client.js");
+        const entry = await resolveKnowledgeById(args.id);
+        const ttl = computeTtlStatus(entry);
+        const ttlLine = ttl
+          ? ttl.expired
+            ? `\n**⚠️ TTL expired** (${Math.abs(ttl.daysRemaining)} days ago)`
+            : `\n**TTL:** ${ttl.daysRemaining} days remaining`
+          : "";
+        const sourceLine = entry.sourceUrl ? `\n**Source:** ${entry.sourceUrl} (${entry.sourceType})` : "";
+
+        let text = `# ${entry.title}\n\n` +
+          `**ID:** ${entry.id}\n` +
+          `**Type:** ${entry.type}` +
+          (entry.project ? ` | **Project:** ${entry.project}` : "") +
+          (entry.language ? ` | **Language:** ${entry.language}` : "") +
+          (entry.framework ? ` | **Framework:** ${entry.framework}` : "") +
+          sourceLine + ttlLine +
+          `\n**Confidence:** ${entry.confidence.toFixed(2)}` +
+          `\n**Created:** ${formatLocalTime(entry.createdAt)}` +
+          `\n\n## Content\n\n${entry.content}`;
+
+        if (entry.rawContent) {
+          text += `\n\n## Full Content\n\n${entry.rawContent}`;
+        }
+
+        return {
+          content: [{ type: "text" as const, text }],
+        };
+      }
+
+      // Search mode — requires query
+      if (!args.query) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: "Error: 'query' or 'id' is required.",
+            },
+          ],
+          isError: true,
+        };
+      }
+
       const results = await recall(args.query, {
         type: args.type as KnowledgeType | undefined,
         project: args.project,
@@ -162,15 +233,38 @@ server.tool(
       }
 
       const formatted = results
-        .map(
-          (r, i) =>
+        .map((r, i) => {
+          let line =
             `### ${i + 1}. ${r.title} (score: ${r.score.toFixed(3)})\n` +
             `**Type:** ${r.type}` +
             (r.project ? ` | **Project:** ${r.project}` : "") +
             (r.language ? ` | **Language:** ${r.language}` : "") +
-            (r.framework ? ` | **Framework:** ${r.framework}` : "") +
-            `\n\n${r.content}\n`
-        )
+            (r.framework ? ` | **Framework:** ${r.framework}` : "");
+
+          // Add source info for references
+          if (r.type === "reference") {
+            // Fetch full entry for TTL/source info
+            const entry = results[i] as unknown as Record<string, unknown>;
+            const sourceUrl = (entry.sourceUrl as string) || "";
+            if (sourceUrl) line += `\n**Source:** ${sourceUrl}`;
+          }
+
+          // TTL status (check via underlying data if available)
+          const entryData = r as unknown as Record<string, unknown>;
+          if (entryData.type === "reference" && entryData.ttlDays && (entryData.ttlDays as number) > 0 && entryData.fetchedAt) {
+            const fetchedMs = new Date(entryData.fetchedAt as string).getTime();
+            const expiresMs = fetchedMs + (entryData.ttlDays as number) * 24 * 60 * 60 * 1000;
+            const daysRemaining = Math.ceil((expiresMs - Date.now()) / (24 * 60 * 60 * 1000));
+            if (daysRemaining <= 0) {
+              line += ` | **⚠️ Expired** (${Math.abs(daysRemaining)} days ago)`;
+            } else {
+              line += ` | **TTL:** ${daysRemaining}d`;
+            }
+          }
+
+          line += `\n\n${r.content}\n`;
+          return line;
+        })
         .join("\n---\n\n");
 
       return {
@@ -269,7 +363,7 @@ server.tool(
       .default("markdown")
       .describe("Export format: markdown (knowledge only, flat files) or obsidian (all data with frontmatter and wikilinks)"),
     type: z
-      .enum(["lesson", "pitfall", "preference", "pattern", "solution"])
+      .enum(["lesson", "pitfall", "preference", "pattern", "solution", "reference"])
       .optional()
       .describe("Filter by knowledge type"),
     project: z.string().optional().describe("Filter by project"),

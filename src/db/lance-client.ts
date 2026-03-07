@@ -8,6 +8,22 @@ import { createPlaceholderEntry } from "./schema.js";
 
 let dbInstance: lancedb.Connection | null = null;
 
+/**
+ * Normalize a raw LanceDB row into a KnowledgeEntry.
+ * Existing rows created before the reference-knowledge migration will have
+ * undefined for the new columns; this function fills in safe defaults.
+ */
+function normalizeKnowledgeEntry(raw: Record<string, unknown>): KnowledgeEntry {
+  return {
+    ...(raw as unknown as KnowledgeEntry),
+    rawContent: (raw.rawContent as string) ?? "",
+    sourceUrl: (raw.sourceUrl as string) ?? "",
+    sourceType: (raw.sourceType as string) ?? "",
+    fetchedAt: (raw.fetchedAt as string) ?? "",
+    ttlDays: (raw.ttlDays as number) ?? 0,
+  };
+}
+
 export async function getDb(): Promise<lancedb.Connection> {
   if (dbInstance) return dbInstance;
 
@@ -103,11 +119,12 @@ export async function deleteKnowledgeEntry(id: string): Promise<void> {
 
 export async function getKnowledgeById(id: string): Promise<KnowledgeEntry | null> {
   const table = await getKnowledgeTable();
-  const results = (await table
+  const rows = await table
     .query()
     .where(`id = '${id}'`)
-    .toArray()) as unknown as KnowledgeEntry[];
-  return results.length > 0 ? results[0] : null;
+    .toArray();
+  if (rows.length === 0) return null;
+  return normalizeKnowledgeEntry(rows[0] as unknown as Record<string, unknown>);
 }
 
 /**
@@ -121,7 +138,8 @@ export async function resolveKnowledgeById(
   if (exact) return exact;
 
   const table = await getKnowledgeTable();
-  const all = (await table.query().limit(10000).toArray()) as unknown as KnowledgeEntry[];
+  const rows = await table.query().limit(10000).toArray();
+  const all = (rows as unknown as Record<string, unknown>[]).map(normalizeKnowledgeEntry);
   const matches = all.filter((e) => e.id.startsWith(partialId));
 
   if (matches.length === 0) {
@@ -145,14 +163,14 @@ export async function updateKnowledgeConfidence(
   confidence: number
 ): Promise<void> {
   const table = await getKnowledgeTable();
-  const results = (await table
+  const rows = await table
     .query()
     .where(`id = '${id}'`)
-    .toArray()) as unknown as KnowledgeEntry[];
+    .toArray();
 
-  if (results.length === 0) return;
+  if (rows.length === 0) return;
 
-  const entry = { ...results[0], confidence };
+  const entry = { ...normalizeKnowledgeEntry(rows[0] as unknown as Record<string, unknown>), confidence };
   await table.delete(`id = '${id}'`);
   await table.add([entry as unknown as Record<string, unknown>]);
 }
@@ -167,7 +185,8 @@ export async function batchUpdateConfidence(
   if (updates.length === 0) return;
 
   const table = await getKnowledgeTable();
-  const all = (await table.query().limit(10000).toArray()) as unknown as KnowledgeEntry[];
+  const rows = await table.query().limit(10000).toArray();
+  const all = (rows as unknown as Record<string, unknown>[]).map(normalizeKnowledgeEntry);
 
   const updateMap = new Map(updates.map((u) => [u.id, u.confidence]));
   const toUpdate = all.filter((e) => updateMap.has(e.id));
@@ -194,5 +213,6 @@ export async function countKnowledgeEntries(): Promise<number> {
 
 export async function getAllKnowledgeEntries(): Promise<KnowledgeEntry[]> {
   const table = await getKnowledgeTable();
-  return table.query().limit(10000).toArray() as unknown as KnowledgeEntry[];
+  const rows = await table.query().limit(10000).toArray();
+  return (rows as unknown as Record<string, unknown>[]).map(normalizeKnowledgeEntry);
 }

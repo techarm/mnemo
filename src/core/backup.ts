@@ -10,7 +10,7 @@ import type {
 } from "../types/index.js";
 
 // Current schema version
-export const SCHEMA_VERSION = "0.2.0";
+export const SCHEMA_VERSION = "0.3.0";
 
 export interface BackupData {
   version: string;
@@ -108,6 +108,12 @@ export async function restoreBackup(
       const restored: KnowledgeEntry = {
         ...entry,
         vector,
+        // Ensure new fields have defaults for older backups
+        rawContent: entry.rawContent ?? "",
+        sourceUrl: entry.sourceUrl ?? "",
+        sourceType: entry.sourceType ?? "",
+        fetchedAt: entry.fetchedAt ?? "",
+        ttlDays: entry.ttlDays ?? 0,
       };
       await addKnowledgeEntry(restored);
       knowledgeCount++;

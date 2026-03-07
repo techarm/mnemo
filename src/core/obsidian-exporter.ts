@@ -139,7 +139,7 @@ function renderKnowledgeNote(
 ): string {
   const tags = parseTags(entry.tags);
 
-  const frontmatter = toYamlFrontmatter({
+  const frontmatterData: Record<string, unknown> = {
     type: entry.type,
     project: entry.project || undefined,
     tags,
@@ -150,9 +150,24 @@ function renderKnowledgeNote(
     mnemo_id: entry.id,
     created: entry.createdAt.split("T")[0],
     updated: entry.updatedAt.split("T")[0],
-  });
+  };
+
+  // Reference-specific frontmatter
+  if (entry.type === "reference") {
+    if (entry.sourceUrl) frontmatterData.source_url = entry.sourceUrl;
+    if (entry.sourceType) frontmatterData.source_type = entry.sourceType;
+    if (entry.fetchedAt) frontmatterData.fetched = entry.fetchedAt.split("T")[0];
+    if (entry.ttlDays) frontmatterData.ttl_days = entry.ttlDays;
+  }
+
+  const frontmatter = toYamlFrontmatter(frontmatterData);
 
   const lines: string[] = [frontmatter, "", `# ${entry.title}`, "", entry.content];
+
+  // Add rawContent section for references
+  if (entry.type === "reference" && entry.rawContent) {
+    lines.push("", "## Full Content", "", entry.rawContent);
+  }
 
   // Footer with wikilinks
   const footerLinks: string[] = [];
@@ -392,7 +407,7 @@ export async function exportToObsidian(
   }
 
   // --- 4. Create folder structure ---
-  const knowledgeTypes = ["pitfall", "pattern", "lesson", "solution", "preference"];
+  const knowledgeTypes = ["pitfall", "pattern", "lesson", "solution", "preference", "reference"];
   for (const t of knowledgeTypes) {
     fs.mkdirSync(path.join(dir, "Knowledge", typeFolderName(t)), {
       recursive: true,
