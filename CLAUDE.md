@@ -4,13 +4,31 @@
 ユーザーが手書きした内容はここに書きます。
 
 <!-- MNEMO:START - この部分は Mnemo が自動生成します。手動で編集しないでください -->
-<!-- 最終更新: 2026-03-07 19:25 -->
+<!-- 最終更新: 2026-03-07 20:59 -->
 
 ## プロジェクト情報
 - **名前:** mnemo
 - **説明:** Knowledge memory system for Claude Code
 - **言語:** typescript
 - **技術スタック:** typescript, lancedb
+
+## 📖 Project Docs
+
+### System Design
+
+- **システムアーキテクチャ** (`.claude/docs/architecture.md`): 3テーブル構成（knowledge/projects/tasks）、LanceDB+Ollama、MCP+CLIデュアルインターフェース、ファイルベースドキュメント
+
+### Features
+
+- **ハイブリッド検索** (`.claude/docs/hybrid-search.md`): Vector検索+FTS→Reciprocal Rank Fusion→多次元スコアリング（semantic 0.6, bm25 0.25, recency 0.1, confidence 0.05）
+- **信頼度減衰システム** (`.claude/docs/confidence-decay.md`): 時定数τ=180日の指数減衰、フロア値0.1、recall時+0.1ブースト、起動時バッチ処理
+- **CLAUDE.md 自動生成** (`.claude/docs/claude-md-generation.md`): マーカーベース部分更新、confidence>=0.5フィルタ、知識・タスク・ドキュメントをセクション分類して出力
+
+### API / Interfaces
+
+- **MCPツール・CLIインターフェース** (`.claude/docs/mcp-tools.md`): 10個のMCPツール（learn/recall/project/task/doc/generate/backup/stats/export/delete）+ CLI + スキル + フック
+
+_5件のドキュメント。詳細は `.claude/docs/` を Read tool で参照。_
 
 ## ⚠️ Pitfalls（既知の落とし穴）
 - **LanceDB query()のデフォルトlimitは10件**: LanceDBのtable.query().toArray()はデフォルトでlimit(10)が適用される。全件取得するにはquery().limit(10000).toArray()のように明示的にlimitを指定する必要がある。countRows()は正しい件数を返すがquery()はデフォルト10件しか返さないため、11件以上のデータがある場合にデータが欠落する。
@@ -19,7 +37,6 @@
 
 ## 📋 Active Tasks
 - [ ] [低] code-reuse-finder スキルの作成
-- [ ] [低] 知識の信頼度減衰システム
 - [ ] [低] Obsidian Vault 連携エクスポート
 - [ ] [低] プロジェクトテンプレート (mnemo init/create)
 

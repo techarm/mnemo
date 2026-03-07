@@ -110,8 +110,8 @@ export async function stats(): Promise<KnowledgeStats> {
   return { totalEntries: count, byType, byProject, byLanguage };
 }
 
-/** Confidence decay half-life in days (6 months) */
-const CONFIDENCE_HALF_LIFE = 180;
+/** Confidence decay time constant in days (τ = 180 days: ~37% at 180 days, ~13% at 365 days) */
+const CONFIDENCE_TIME_CONSTANT = 180;
 
 /** Minimum confidence floor (entries never fully disappear) */
 const CONFIDENCE_FLOOR = 0.1;
@@ -120,7 +120,8 @@ const CONFIDENCE_FLOOR = 0.1;
  * Apply time-based confidence decay to all knowledge entries.
  * Uses exponential decay based on age since last update.
  *
- * Formula: confidence = max(FLOOR, e^(-ageDays / HALF_LIFE))
+ * Formula: confidence = max(FLOOR, e^(-ageDays / τ))
+ * where τ = CONFIDENCE_TIME_CONSTANT (180 days)
  *
  * Returns the number of entries updated.
  */
@@ -136,7 +137,7 @@ export async function decayConfidence(): Promise<number> {
 
     const newConfidence = Math.max(
       CONFIDENCE_FLOOR,
-      Math.exp(-ageDays / CONFIDENCE_HALF_LIFE)
+      Math.exp(-ageDays / CONFIDENCE_TIME_CONSTANT)
     );
 
     // Only update if change is significant (> 0.01)

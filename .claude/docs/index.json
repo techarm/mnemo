@@ -1,4 +1,83 @@
 {
   "version": "1.0",
-  "docs": []
+  "docs": [
+    {
+      "id": "architecture",
+      "filename": "architecture.md",
+      "title": "システムアーキテクチャ",
+      "summary": "3テーブル構成（knowledge/projects/tasks）、LanceDB+Ollama、MCP+CLIデュアルインターフェース、ファイルベースドキュメント",
+      "scope": "global",
+      "relatedFiles": [
+        "src/index.ts",
+        "src/db/lance-client.ts",
+        "src/db/project-client.ts",
+        "src/types/index.ts",
+        "bin/mnemo.ts"
+      ],
+      "tags": ["architecture", "design", "overview"],
+      "createdAt": "2026-03-07T12:00:00Z",
+      "updatedAt": "2026-03-07T12:00:00Z"
+    },
+    {
+      "id": "hybrid-search",
+      "filename": "hybrid-search.md",
+      "title": "ハイブリッド検索",
+      "summary": "Vector検索+FTS→Reciprocal Rank Fusion→多次元スコアリング（semantic 0.6, bm25 0.25, recency 0.1, confidence 0.05）",
+      "scope": "feature",
+      "relatedFiles": [
+        "src/core/hybrid-search.ts",
+        "src/core/knowledge-store.ts",
+        "src/embedding/ollama.ts"
+      ],
+      "tags": ["search", "vector", "fts", "rrf"],
+      "createdAt": "2026-03-07T12:00:00Z",
+      "updatedAt": "2026-03-07T12:00:00Z"
+    },
+    {
+      "id": "confidence-decay",
+      "filename": "confidence-decay.md",
+      "title": "信頼度減衰システム",
+      "summary": "時定数τ=180日の指数減衰、フロア値0.1、recall時+0.1ブースト、起動時バッチ処理",
+      "scope": "feature",
+      "relatedFiles": [
+        "src/core/knowledge-store.ts",
+        "src/core/backup.ts",
+        "src/db/lance-client.ts"
+      ],
+      "tags": ["confidence", "decay", "scoring"],
+      "createdAt": "2026-03-07T12:00:00Z",
+      "updatedAt": "2026-03-07T12:00:00Z"
+    },
+    {
+      "id": "claude-md-generation",
+      "filename": "claude-md-generation.md",
+      "title": "CLAUDE.md 自動生成",
+      "summary": "マーカーベース部分更新、confidence>=0.5フィルタ、知識・タスク・ドキュメントをセクション分類して出力",
+      "scope": "feature",
+      "relatedFiles": [
+        "src/core/claude-md-generator.ts",
+        "src/core/doc-store.ts"
+      ],
+      "tags": ["claude-md", "generation", "marker"],
+      "createdAt": "2026-03-07T12:00:00Z",
+      "updatedAt": "2026-03-07T12:00:00Z"
+    },
+    {
+      "id": "mcp-tools",
+      "filename": "mcp-tools.md",
+      "title": "MCPツール・CLIインターフェース",
+      "summary": "10個のMCPツール（learn/recall/project/task/doc/generate/backup/stats/export/delete）+ CLI + スキル + フック",
+      "scope": "api",
+      "relatedFiles": [
+        "src/index.ts",
+        "bin/mnemo.ts",
+        ".claude/skills/learn/SKILL.md",
+        ".claude/skills/session-review/SKILL.md",
+        ".claude/skills/doc/SKILL.md"
+      ],
+      "tags": ["mcp", "cli", "api", "interface"],
+      "createdAt": "2026-03-07T12:00:00Z",
+      "updatedAt": "2026-03-07T12:00:00Z"
+    }
+  ]
 }
