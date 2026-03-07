@@ -4,6 +4,12 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { learn, recall, stats, remove, computeTtlStatus } from "./core/knowledge-store.js";
+import {
+  writeSessionLog,
+  listSessionLogs,
+  getSessionLog,
+  getRecentSessionLogs,
+} from "./core/session-store.js";
 import { getKnowledgeById } from "./db/lance-client.js";
 import { exportToMarkdown } from "./core/exporter.js";
 import { exportToObsidian } from "./core/obsidian-exporter.js";
@@ -1222,6 +1228,195 @@ server.tool(
           {
             type: "text" as const,
             text: `Delete failed: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+// --- mnemo_session ---
+server.tool(
+  "mnemo_session",
+  "Manage session logs for continuity between Claude Code sessions. Write a session summary at session end, or read recent logs to restore context. Session logs record what was done, decisions made, and what's next.",
+  {
+    action: z
+      .enum(["write", "list", "get", "recent"])
+      .describe("Action: write (record log), list (show entries), get (specific date), recent (rolling window)"),
+    project: z
+      .string()
+      .optional()
+      .describe("Project name (required for write/get/recent, optional for list)"),
+    summary: z
+      .string()
+      .optional()
+      .describe("Session summary - 1-2 sentences of what was done (required for write)"),
+    tasksWorkedOn: z
+      .array(z.string())
+      .optional()
+      .describe("Tasks worked on: '[x] completed task', '[>] in progress task'"),
+    keyDecisions: z
+      .array(z.string())
+      .optional()
+      .describe("Key decisions and rationale made during the session"),
+    filesModified: z
+      .array(z.string())
+      .optional()
+      .describe("Files modified during the session"),
+    errorsSolutions: z
+      .array(z.string())
+      .optional()
+      .describe("Errors encountered and their solutions"),
+    nextSteps: z
+      .array(z.string())
+      .optional()
+      .describe("What to do next / pending items for the next session"),
+    date: z
+      .string()
+      .optional()
+      .describe("Date in YYYY-MM-DD format (for get action)"),
+    days: z
+      .number()
+      .optional()
+      .describe("Number of days to look back (for recent action, default 3)"),
+  },
+  async (args) => {
+    try {
+      switch (args.action) {
+        case "write": {
+          if (!args.project || !args.summary) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: "Error: 'project' and 'summary' are required for write action.",
+                },
+              ],
+              isError: true,
+            };
+          }
+          const entry = writeSessionLog({
+            timestamp: new Date().toISOString(),
+            project: args.project,
+            summary: args.summary,
+            tasksWorkedOn: args.tasksWorkedOn,
+            keyDecisions: args.keyDecisions,
+            filesModified: args.filesModified,
+            errorsSolutions: args.errorsSolutions,
+            nextSteps: args.nextSteps,
+          });
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `セッションログを記録しました: ${args.project} (${entry.date})\nSessions today: ${entry.sessionCount}`,
+              },
+            ],
+          };
+        }
+
+        case "list": {
+          const entries = listSessionLogs(args.project);
+          if (entries.length === 0) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: args.project
+                    ? `${args.project} のセッションログはありません。`
+                    : "セッションログはありません。",
+                },
+              ],
+            };
+          }
+          const lines = entries.map(
+            (e) =>
+              `- ${e.date} [${e.project}] — ${e.sessionCount} session(s)`
+          );
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `セッションログ一覧 (${entries.length}件)\n\n${lines.join("\n")}`,
+              },
+            ],
+          };
+        }
+
+        case "get": {
+          if (!args.project || !args.date) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: "Error: 'project' and 'date' are required for get action.",
+                },
+              ],
+              isError: true,
+            };
+          }
+          const content = getSessionLog(args.project, args.date);
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `# ${args.project} — ${args.date}\n\n${content}`,
+              },
+            ],
+          };
+        }
+
+        case "recent": {
+          if (!args.project) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: "Error: 'project' is required for recent action.",
+                },
+              ],
+              isError: true,
+            };
+          }
+          const logs = getRecentSessionLogs(args.project, args.days);
+          if (!logs) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: `${args.project} の最近のセッションログはありません。`,
+                },
+              ],
+            };
+          }
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `# ${args.project} — 最近のセッションログ\n\n${logs}`,
+              },
+            ],
+          };
+        }
+
+        default:
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `Unknown action: ${args.action}`,
+              },
+            ],
+            isError: true,
+          };
+      }
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Session operation failed: ${error instanceof Error ? error.message : String(error)}`,
           },
         ],
         isError: true,

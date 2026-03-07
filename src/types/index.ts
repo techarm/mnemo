@@ -123,6 +123,34 @@ export interface DocIndex {
   docs: DocEntry[];
 }
 
+// --- Session Log types ---
+
+export interface SessionLogEntry {
+  timestamp: string; // ISO timestamp
+  project: string; // project name
+  summary: string; // 1-2 sentence session summary
+  tasksWorkedOn?: string[]; // "[x] completed", "[>] in progress"
+  keyDecisions?: string[]; // important decisions made
+  filesModified?: string[]; // files changed
+  errorsSolutions?: string[]; // errors encountered and resolutions
+  nextSteps?: string[]; // what to do next
+}
+
+export interface SessionIndex {
+  version: "1.0";
+  rollingWindowDays: number; // default 3
+  maxRetentionDays: number; // default 30
+  entries: SessionIndexEntry[];
+}
+
+export interface SessionIndexEntry {
+  date: string; // YYYY-MM-DD
+  project: string;
+  filePath: string; // "mnemo/2026-03-07.md"
+  sessionCount: number;
+  lastUpdated: string; // ISO
+}
+
 export function getConfig(): MnemoConfig {
   return {
     dataDir: process.env.MNEMO_DATA_DIR || `${process.env.HOME}/.mnemo`,

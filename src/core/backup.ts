@@ -237,5 +237,16 @@ export async function checkAndMigrate(): Promise<string | null> {
     // Non-critical: ignore decay errors on startup
   }
 
+  // Clean up old session logs
+  try {
+    const { cleanupOldSessionLogs } = await import("./session-store.js");
+    const deleted = cleanupOldSessionLogs();
+    if (deleted > 0) {
+      console.error(`[Mnemo] セッションログクリーンアップ: ${deleted}件削除`);
+    }
+  } catch {
+    // Non-critical: ignore cleanup errors on startup
+  }
+
   return migrated;
 }

@@ -35,6 +35,13 @@ import {
   getDoc,
   deleteDoc,
 } from "../src/core/doc-store.js";
+import {
+  writeSessionLog,
+  listSessionLogs,
+  getSessionLog,
+  getRecentSessionLogs,
+  getSessionContext,
+} from "../src/core/session-store.js";
 import type { KnowledgeType, TaskStatus, TaskPriority, DocScope } from "../src/types/index.js";
 
 /** UTC ISO文字列をローカルタイムゾーンの "YYYY-MM-DD HH:mm" に変換 */
@@ -786,6 +793,162 @@ docCmd
         error instanceof Error ? error.message : error
       );
       process.exit(1);
+    }
+  });
+
+// --- session ---
+
+const sessionCmd = program
+  .command("session")
+  .description("セッションログ管理");
+
+sessionCmd
+  .command("write")
+  .description("セッションログを記録")
+  .requiredOption("-p, --project <project>", "プロジェクト名")
+  .requiredOption("-s, --summary <summary>", "セッション要約")
+  .option("--tasks <tasks>", "カンマ区切りの作業タスク")
+  .option("--decisions <decisions>", "カンマ区切りの決定事項")
+  .option("--files <files>", "カンマ区切りの変更ファイル")
+  .option("--errors <errors>", "カンマ区切りのエラーと解決策")
+  .option("--next <next>", "カンマ区切りの次のステップ")
+  .action(async (opts) => {
+    try {
+      const entry = writeSessionLog({
+        timestamp: new Date().toISOString(),
+        project: opts.project,
+        summary: opts.summary,
+        tasksWorkedOn: opts.tasks
+          ?.split(",")
+          .map((s: string) => s.trim()),
+        keyDecisions: opts.decisions
+          ?.split(",")
+          .map((s: string) => s.trim()),
+        filesModified: opts.files
+          ?.split(",")
+          .map((s: string) => s.trim()),
+        errorsSolutions: opts.errors
+          ?.split(",")
+          .map((s: string) => s.trim()),
+        nextSteps: opts.next
+          ?.split(",")
+          .map((s: string) => s.trim()),
+      });
+      console.log(
+        `セッションログを記録しました: ${opts.project} (${entry.date}, ${entry.sessionCount} session(s))`
+      );
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : error
+      );
+      process.exit(1);
+    }
+  });
+
+sessionCmd
+  .command("list")
+  .description("セッションログ一覧")
+  .option("-p, --project <project>", "プロジェクト名でフィルタ")
+  .action(async (opts) => {
+    try {
+      let projectName = opts.project;
+      if (!projectName) {
+        const detected = await detectProject(process.cwd());
+        if (detected) projectName = detected.name;
+      }
+      const entries = listSessionLogs(projectName);
+      if (entries.length === 0) {
+        console.log("セッションログはありません。");
+        return;
+      }
+      console.log(`セッションログ一覧 (${entries.length}件):\n`);
+      for (const e of entries) {
+        console.log(
+          `  ${e.date} [${e.project}] — ${e.sessionCount} session(s)`
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : error
+      );
+      process.exit(1);
+    }
+  });
+
+sessionCmd
+  .command("get <date>")
+  .description("特定日のセッションログを表示")
+  .requiredOption("-p, --project <project>", "プロジェクト名")
+  .action(async (date: string, opts) => {
+    try {
+      const content = getSessionLog(opts.project, date);
+      console.log(content);
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : error
+      );
+      process.exit(1);
+    }
+  });
+
+sessionCmd
+  .command("recent")
+  .description("最近のセッションログを表示")
+  .option("-p, --project <project>", "プロジェクト名")
+  .option("-d, --days <days>", "遡る日数", "3")
+  .action(async (opts) => {
+    try {
+      let projectName = opts.project;
+      if (!projectName) {
+        const detected = await detectProject(process.cwd());
+        if (!detected) {
+          console.error(
+            "Error: --project を指定するか、登録済みプロジェクトのディレクトリで実行してください。"
+          );
+          process.exit(1);
+        }
+        projectName = detected.name;
+      }
+      const logs = getRecentSessionLogs(projectName, parseInt(opts.days));
+      if (!logs) {
+        console.log("最近のセッションログはありません。");
+        return;
+      }
+      console.log(logs);
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : error
+      );
+      process.exit(1);
+    }
+  });
+
+sessionCmd
+  .command("context")
+  .description("セッション開始時のコンテキスト出力（hook用）")
+  .option("-p, --project <project>", "プロジェクト名")
+  .option("-d, --days <days>", "遡る日数", "3")
+  .action(async (opts) => {
+    try {
+      let projectName = opts.project;
+      if (!projectName) {
+        const detected = await detectProject(process.cwd());
+        if (!detected) {
+          // Silently return empty — hook should not fail
+          return;
+        }
+        projectName = detected.name;
+      }
+      const context = getSessionContext(projectName, parseInt(opts.days));
+      if (context) {
+        console.log(context);
+      }
+    } catch {
+      // Silently fail — hook should not break session start
     }
   });
 

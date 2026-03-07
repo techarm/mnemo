@@ -5,7 +5,7 @@ description: Review the current session to extract learnings, mark completed tas
 
 # Session Review
 
-Analyze this session and perform four actions: (1) extract knowledge, (2) mark completed tasks, (3) check project docs, and (4) update CLAUDE.md.
+Analyze this session and perform five actions: (1) extract knowledge, (2) mark completed tasks, (3) check project docs, (4) update CLAUDE.md, and (5) write session log.
 
 ## Step 1: Identify Knowledge Worth Recording
 
@@ -82,6 +82,34 @@ If any of the following happened in Steps 1-3, run `mnemo_generate` to update CL
 - Tasks were marked as done
 - Project docs were created or updated
 
+## Step 5: Write Session Log
+
+Record a session log so the next session can continue where this one left off. This bridges the context gap between sessions.
+
+1. Detect the project: `mnemo_project(action: detect)`
+2. Gather session information:
+   - **summary**: 1-2 sentences describing the main work done in this session
+   - **tasksWorkedOn**: List from Step 2 — use `[x]` for completed, `[>]` for in-progress
+   - **keyDecisions**: Any architectural or design decisions made during the session
+   - **filesModified**: Key files that were changed (use `git diff --name-only HEAD~1` or session knowledge)
+   - **errorsSolutions**: From Step 1, any errors that were encountered and resolved
+   - **nextSteps**: Unfinished work, pending items, or follow-up tasks for the next session
+3. Write the session log:
+   ```
+   mnemo_session(action: write, project: <detected-project>,
+     summary: "...",
+     tasksWorkedOn: ["[x] task1", "[>] task2"],
+     keyDecisions: ["decision1"],
+     filesModified: ["file1.ts", "file2.ts"],
+     errorsSolutions: ["error: solution"],
+     nextSteps: ["next1", "next2"])
+   ```
+4. Keep the summary concise — it will be injected into the next session's context window.
+
+### Skip session log if:
+- The session was trivially short (quick question, single command)
+- No meaningful work was done (research/discussion only with no actionable outcome)
+
 ## Output Format
 
 Summarize concisely:
@@ -105,4 +133,8 @@ Summarize concisely:
 
 ### CLAUDE.md
 - Updated / No update needed
+
+### Session Log
+- Recorded: [summary]
+- (skipped — trivial session)
 ```
