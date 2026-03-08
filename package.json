@@ -1,6 +1,6 @@
 {
   "name": "mnemo",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "description": "Mnemo - Knowledge memory system for Claude Code",
   "type": "module",
   "bin": {
@@ -10,8 +10,33 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start:mcp": "node dist/src/index.js",
-    "start:cli": "node dist/bin/mnemo.js"
+    "start:cli": "node dist/bin/mnemo.js",
+    "prepublishOnly": "npm run build"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/techarm/mnemo.git"
+  },
+  "author": "techarm",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "knowledge-management",
+    "mcp",
+    "ai",
+    "memory"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist/",
+    "hooks/",
+    ".claude/skills/",
+    ".claude/docs/",
+    "scripts/",
+    ".mcp.json"
+  ],
   "dependencies": {
     "@lancedb/lancedb": "^0.15.0",
     "@modelcontextprotocol/sdk": "^1.12.1",

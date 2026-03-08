@@ -67,7 +67,7 @@ function formatLocalTime(isoString: string): string {
 program
   .name("mnemo")
   .description("Mnemo - Knowledge memory system for Claude Code")
-  .version("0.3.0")
+  .version("0.4.0")
   .hook("preAction", async () => {
     await checkAndMigrate();
   });
