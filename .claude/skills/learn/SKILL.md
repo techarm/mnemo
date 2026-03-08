@@ -20,6 +20,7 @@ Given the user's input (`$ARGUMENTS`), do the following:
    - **pattern**: A reusable code pattern, architecture approach, or workflow that works well.
    - **preference**: A coding style, convention, or tool choice the user wants to follow consistently.
    - **reference**: Information fetched from external sources (web, docs, Context7) that should be persisted for future use. Use this when the user wants to save web research results. For bulk research, suggest using `/research` instead.
+   - **procedure**: A structured step-by-step guide for setting up or configuring a tool, library, or workflow. Includes installation, configuration, and usage instructions. No confidence decay. For creating procedures from research, suggest using `/setup` instead.
 
 2. **Extract metadata**:
    - **title**: A concise summary (under 60 characters). This is what appears in search results.

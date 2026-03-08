@@ -74,11 +74,11 @@ const server = new McpServer({
 // --- mnemo_learn ---
 server.tool(
   "mnemo_learn",
-  "Store a piece of knowledge (lesson, pitfall, pattern, preference, solution, reference) into Mnemo. Automatically generates semantic embeddings for intelligent retrieval. Use type 'reference' for web research results with TTL-based freshness tracking.",
+  "Store a piece of knowledge (lesson, pitfall, pattern, preference, solution, reference, procedure) into Mnemo. Automatically generates semantic embeddings for intelligent retrieval. Use type 'reference' for web research results with TTL. Use type 'procedure' for structured setup/configuration guides (no decay, no TTL).",
   {
     type: z
-      .enum(["lesson", "pitfall", "preference", "pattern", "solution", "reference"])
-      .describe("Type of knowledge. Use 'reference' for web research / documentation to persist with TTL"),
+      .enum(["lesson", "pitfall", "preference", "pattern", "solution", "reference", "procedure"])
+      .describe("Type of knowledge. 'reference' for web research with TTL. 'procedure' for setup guides (no decay)"),
     title: z.string().describe("Short title summarizing the knowledge"),
     content: z
       .string()
@@ -168,7 +168,7 @@ server.tool(
       .optional()
       .describe("Direct lookup by ID (full or short prefix). Returns full entry including rawContent."),
     type: z
-      .enum(["lesson", "pitfall", "preference", "pattern", "solution", "reference"])
+      .enum(["lesson", "pitfall", "preference", "pattern", "solution", "reference", "procedure"])
       .optional()
       .describe("Filter by knowledge type"),
     project: z.string().optional().describe("Filter by project name"),
@@ -377,7 +377,7 @@ server.tool(
       .default("markdown")
       .describe("Export format: markdown (knowledge only, flat files) or obsidian (all data with frontmatter and wikilinks)"),
     type: z
-      .enum(["lesson", "pitfall", "preference", "pattern", "solution", "reference"])
+      .enum(["lesson", "pitfall", "preference", "pattern", "solution", "reference", "procedure"])
       .optional()
       .describe("Filter by knowledge type"),
     project: z.string().optional().describe("Filter by project"),

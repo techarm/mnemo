@@ -26,7 +26,8 @@ export type KnowledgeType =
   | "preference"
   | "pattern"
   | "solution"
-  | "reference";
+  | "reference"
+  | "procedure";
 
 export interface SearchOptions {
   type?: KnowledgeType;

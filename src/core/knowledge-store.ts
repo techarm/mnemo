@@ -145,6 +145,9 @@ export async function decayConfidence(): Promise<number> {
   const updates: { id: string; confidence: number }[] = [];
 
   for (const entry of entries) {
+    // Procedures are permanent records — exempt from decay
+    if (entry.type === "procedure") continue;
+
     const ageMs = now - new Date(entry.updatedAt).getTime();
     const ageDays = ageMs / (1000 * 60 * 60 * 24);
 

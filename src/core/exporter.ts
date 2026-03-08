@@ -44,8 +44,8 @@ export async function exportToMarkdown(
       if (tags.length > 0) lines.push(`- **Tags:** ${tags.join(", ")}`);
       lines.push(`- **Date:** ${item.createdAt.split("T")[0]}`);
 
-      // Reference-specific metadata
-      if (item.type === "reference") {
+      // Reference/procedure-specific metadata
+      if (item.type === "reference" || item.type === "procedure") {
         if (item.sourceUrl) lines.push(`- **Source:** ${item.sourceUrl}`);
         if (item.sourceType) lines.push(`- **Source Type:** ${item.sourceType}`);
         if (item.ttlDays) lines.push(`- **TTL:** ${item.ttlDays} days`);
@@ -54,8 +54,8 @@ export async function exportToMarkdown(
       lines.push("");
       lines.push(item.content);
 
-      // Include rawContent for reference type
-      if (item.type === "reference" && item.rawContent) {
+      // Include rawContent for reference and procedure types
+      if ((item.type === "reference" || item.type === "procedure") && item.rawContent) {
         lines.push("");
         lines.push("### Full Content");
         lines.push("");

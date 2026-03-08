@@ -78,7 +78,7 @@ program
   .description("Record a piece of knowledge")
   .requiredOption(
     "-t, --type <type>",
-    "Type: lesson, pitfall, preference, pattern, solution, reference"
+    "Type: lesson, pitfall, preference, pattern, solution, reference, procedure"
   )
   .option("-c, --content <content>", "Detailed content (if omitted, title is used)")
   .option("-p, --project <project>", "Project name")
@@ -123,7 +123,7 @@ program
   .description("Search the knowledge base (semantic + keyword)")
   .option(
     "-t, --type <type>",
-    "Filter: lesson, pitfall, preference, pattern, solution, reference"
+    "Filter: lesson, pitfall, preference, pattern, solution, reference, procedure"
   )
   .option("-p, --project <project>", "Filter by project")
   .option("-l, --language <language>", "Filter by language")

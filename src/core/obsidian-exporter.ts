@@ -152,8 +152,8 @@ function renderKnowledgeNote(
     updated: entry.updatedAt.split("T")[0],
   };
 
-  // Reference-specific frontmatter
-  if (entry.type === "reference") {
+  // Reference/procedure-specific frontmatter
+  if (entry.type === "reference" || entry.type === "procedure") {
     if (entry.sourceUrl) frontmatterData.source_url = entry.sourceUrl;
     if (entry.sourceType) frontmatterData.source_type = entry.sourceType;
     if (entry.fetchedAt) frontmatterData.fetched = entry.fetchedAt.split("T")[0];
@@ -164,8 +164,8 @@ function renderKnowledgeNote(
 
   const lines: string[] = [frontmatter, "", `# ${entry.title}`, "", entry.content];
 
-  // Add rawContent section for references
-  if (entry.type === "reference" && entry.rawContent) {
+  // Add rawContent section for references and procedures
+  if ((entry.type === "reference" || entry.type === "procedure") && entry.rawContent) {
     lines.push("", "## Full Content", "", entry.rawContent);
   }
 
@@ -407,7 +407,7 @@ export async function exportToObsidian(
   }
 
   // --- 4. Create folder structure ---
-  const knowledgeTypes = ["pitfall", "pattern", "lesson", "solution", "preference", "reference"];
+  const knowledgeTypes = ["pitfall", "pattern", "lesson", "solution", "preference", "reference", "procedure"];
   for (const t of knowledgeTypes) {
     fs.mkdirSync(path.join(dir, "Knowledge", typeFolderName(t)), {
       recursive: true,

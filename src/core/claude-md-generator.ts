@@ -34,6 +34,7 @@ const SECTION_CONFIG: {
   { type: "pattern", emoji: "📐", label: "Patterns（確立されたパターン）" },
   { type: "lesson", emoji: "💡", label: "Lessons（教訓）" },
   { type: "solution", emoji: "🔧", label: "Solutions（解決策）" },
+  { type: "procedure", emoji: "📝", label: "Procedures（手順書）" },
   { type: "reference", emoji: "📚", label: "References（参照知識）" },
 ];
 
@@ -129,7 +130,11 @@ export async function generateClaudeMdSection(
     for (const entry of entries) {
       const scope = entry.project === "" ? " _(グローバル)_" : "";
 
-      if (sec.type === "reference") {
+      if (sec.type === "procedure") {
+        // Procedure: show title + brief summary (full content is in rawContent)
+        const summary = entry.content.replace(/\n/g, " ").slice(0, 120);
+        lines.push(`- **${entry.title}**${scope}: ${summary}`);
+      } else if (sec.type === "reference") {
         // Reference: show title + sourceUrl + TTL status (no content to save context)
         let refLine = `- **${entry.title}**${scope}`;
         if (entry.sourceUrl) refLine += ` — ${entry.sourceUrl}`;

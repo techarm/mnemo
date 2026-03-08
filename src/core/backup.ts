@@ -11,7 +11,7 @@ import type {
 } from "../types/index.js";
 
 // Current schema version
-export const SCHEMA_VERSION = "0.3.0";
+export const SCHEMA_VERSION = "0.4.0";
 
 export interface BackupData {
   version: string;
