@@ -11,7 +11,7 @@
     "dev": "tsc --watch",
     "start:mcp": "node dist/src/index.js",
     "start:cli": "node dist/bin/mnemo.js",
-    "prepublishOnly": "npm run build"
+    "prepare": "npm run build"
   },
   "repository": {
     "type": "git",

@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 
 import { program } from "commander";
+import fs from "fs";
+import path from "path";
+import os from "os";
+import { execSync } from "child_process";
+import { fileURLToPath } from "url";
 import { learn, recall, stats, remove, computeTtlStatus } from "../src/core/knowledge-store.js";
 import { exportToMarkdown } from "../src/core/exporter.js";
 import { exportToObsidian } from "../src/core/obsidian-exporter.js";
@@ -1127,6 +1132,476 @@ profileCmd
       }
     } catch {
       // Silently fail — hook should not break session start
+    }
+  });
+
+// ===== init / cleanup =====
+
+const __mnemo_filename = fileURLToPath(import.meta.url);
+// dist/bin/mnemo.js → ../../ = mnemo root
+const MNEMO_ROOT = path.resolve(path.dirname(__mnemo_filename), "..", "..");
+const HOME_DIR = process.env.HOME || os.homedir();
+const MNEMO_DATA_DIR = path.join(HOME_DIR, ".mnemo");
+
+function isProjectRoot(dir: string): boolean {
+  return [
+    ".git",
+    "package.json",
+    "Cargo.toml",
+    "pyproject.toml",
+    "go.mod",
+    "Makefile",
+    "build.gradle",
+    "pom.xml",
+  ].some((f) => fs.existsSync(path.join(dir, f)));
+}
+
+function copyDirRecursive(src: string, dest: string): void {
+  if (!fs.existsSync(src)) return;
+  fs.mkdirSync(dest, { recursive: true });
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyDirRecursive(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+}
+
+function removeDirIfEmpty(dirPath: string): void {
+  try {
+    if (fs.existsSync(dirPath) && fs.readdirSync(dirPath).length === 0) {
+      fs.rmdirSync(dirPath);
+    }
+  } catch {
+    // ignore
+  }
+}
+
+function buildHooksConfig(hooksDir: string): Record<string, unknown[]> {
+  return {
+    SessionStart: [
+      {
+        matcher: "startup|resume",
+        hooks: [
+          {
+            type: "command",
+            command: `bash ${hooksDir}/session-start.sh`,
+            timeout: 15,
+          },
+        ],
+      },
+    ],
+    PostToolUse: [
+      {
+        matcher: "Bash",
+        hooks: [
+          {
+            type: "command",
+            command: `bash ${hooksDir}/post-tool-use.sh`,
+            timeout: 10,
+          },
+        ],
+      },
+    ],
+    Stop: [
+      {
+        matcher: "",
+        hooks: [
+          {
+            type: "prompt",
+            prompt: "/session-review を実行してください。",
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function mergeHooksToSettings(settingsPath: string, hooksDir: string): void {
+  let settings: Record<string, unknown> = {};
+  if (fs.existsSync(settingsPath)) {
+    settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+  }
+  if (settings.hooks) {
+    console.log("  ⚠ Existing hooks will be replaced.");
+  }
+  settings.hooks = buildHooksConfig(hooksDir);
+  fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+}
+
+function removeHooksFromSettings(settingsPath: string): boolean {
+  if (!fs.existsSync(settingsPath)) return false;
+  const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+  if (!settings.hooks) return false;
+  delete settings.hooks;
+  if (Object.keys(settings).length === 0) {
+    fs.unlinkSync(settingsPath);
+  } else {
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+  }
+  return true;
+}
+
+function checkOllama(): void {
+  try {
+    execSync("command -v ollama", { stdio: "pipe" });
+    try {
+      execSync("curl -s http://localhost:11434/api/tags", {
+        stdio: "pipe",
+        timeout: 3000,
+      });
+      console.log("  ✓ Ollama: running");
+    } catch {
+      console.log(
+        "  ⚠ Ollama is installed but not running. Start it before using Mnemo."
+      );
+    }
+  } catch {
+    console.log(
+      "  ⚠ Ollama is not installed. Install from https://ollama.com/download"
+    );
+    console.log("    After installing, run: ollama pull nomic-embed-text");
+  }
+}
+
+async function initProject(): Promise<void> {
+  const projectDir = process.cwd();
+
+  // 1. Project root check
+  if (!isProjectRoot(projectDir)) {
+    console.error("Error: プロジェクトのルートディレクトリで実行してください。");
+    console.error(
+      "  .git, package.json 等のプロジェクトファイルが見つかりません。"
+    );
+    console.error(`  現在のディレクトリ: ${projectDir}`);
+    process.exit(1);
+  }
+
+  const projectName = path.basename(projectDir);
+  console.log(`\n=== Mnemo Init (project: ${projectName}) ===\n`);
+
+  // 2. Create data directory
+  fs.mkdirSync(MNEMO_DATA_DIR, { recursive: true });
+  console.log(`  ✓ Data directory: ${MNEMO_DATA_DIR}`);
+
+  // 3. Ollama check
+  checkOllama();
+
+  // 4. .mcp.json — add MCP server config
+  const mcpJsonPath = path.join(projectDir, ".mcp.json");
+  let mcpConfig: Record<string, unknown> = {};
+  if (fs.existsSync(mcpJsonPath)) {
+    mcpConfig = JSON.parse(fs.readFileSync(mcpJsonPath, "utf8"));
+  }
+  if (!mcpConfig.mcpServers) {
+    mcpConfig.mcpServers = {};
+  }
+  (mcpConfig.mcpServers as Record<string, unknown>).mnemo = {
+    command: "node",
+    args: [path.join(MNEMO_ROOT, "dist/src/index.js")],
+    env: {
+      MNEMO_DATA_DIR: MNEMO_DATA_DIR,
+      OLLAMA_URL: "http://localhost:11434",
+    },
+  };
+  fs.writeFileSync(mcpJsonPath, JSON.stringify(mcpConfig, null, 2) + "\n");
+  console.log("  ✓ .mcp.json: MCP server configured");
+
+  // 5. Copy hook scripts to .claude/hooks/
+  const hooksDestDir = path.join(projectDir, ".claude", "hooks");
+  fs.mkdirSync(hooksDestDir, { recursive: true });
+  const hookFiles = ["session-start.sh", "post-tool-use.sh"];
+  for (const file of hookFiles) {
+    fs.copyFileSync(
+      path.join(MNEMO_ROOT, "hooks", file),
+      path.join(hooksDestDir, file)
+    );
+    fs.chmodSync(path.join(hooksDestDir, file), 0o755);
+  }
+  console.log("  ✓ .claude/hooks/: hook scripts copied");
+
+  // 6. Merge hooks into .claude/settings.json
+  const settingsPath = path.join(projectDir, ".claude", "settings.json");
+  mergeHooksToSettings(settingsPath, ".claude/hooks");
+  console.log("  ✓ .claude/settings.json: hooks configured");
+
+  // 7. Copy skills to .claude/skills/
+  const skillsSrc = path.join(MNEMO_ROOT, ".claude", "skills");
+  const skillsDest = path.join(projectDir, ".claude", "skills");
+  if (fs.existsSync(skillsSrc)) {
+    copyDirRecursive(skillsSrc, skillsDest);
+    console.log("  ✓ .claude/skills/: skills copied");
+  }
+
+  // 8. Register project (if not already registered)
+  try {
+    const detected = await detectProject(projectDir);
+    if (!detected) {
+      await registerProject({ name: projectName, path: projectDir });
+      console.log(`  ✓ Project registered: ${projectName}`);
+    } else {
+      console.log(`  ✓ Project already registered: ${detected.name}`);
+    }
+  } catch {
+    // If detectProject fails (no DB yet), register anyway
+    try {
+      await registerProject({ name: projectName, path: projectDir });
+      console.log(`  ✓ Project registered: ${projectName}`);
+    } catch {
+      console.log("  ⚠ Project registration skipped (will register on first use)");
+    }
+  }
+
+  // 9. Summary
+  console.log("\n=== Setup Complete ===\n");
+  console.log("Next steps:");
+  console.log("  1. Start a new Claude Code session in this project");
+  console.log(
+    "  2. Mnemo will automatically inject knowledge at session start"
+  );
+  console.log(
+    "  3. Use /learn to record knowledge, /session-review at session end"
+  );
+  console.log("\nTo set up globally for all projects:");
+  console.log("  mnemo init --global\n");
+}
+
+async function initGlobal(): Promise<void> {
+  console.log("\n=== Mnemo Init (global) ===\n");
+
+  // 1. Create data directory
+  fs.mkdirSync(MNEMO_DATA_DIR, { recursive: true });
+  console.log(`  ✓ Data directory: ${MNEMO_DATA_DIR}`);
+
+  // 2. Ollama check
+  checkOllama();
+
+  // 3. Register MCP server globally via claude mcp add
+  try {
+    execSync(
+      [
+        "claude",
+        "mcp",
+        "add",
+        "--transport",
+        "stdio",
+        "--scope",
+        "user",
+        "-e",
+        `MNEMO_DATA_DIR=${MNEMO_DATA_DIR}`,
+        "-e",
+        "OLLAMA_URL=http://localhost:11434",
+        "mnemo",
+        "--",
+        "node",
+        path.join(MNEMO_ROOT, "dist/src/index.js"),
+      ].join(" "),
+      { stdio: "pipe" }
+    );
+    console.log("  ✓ MCP server: registered globally (claude mcp add)");
+  } catch {
+    console.error(
+      "  ✗ MCP server registration failed. Is Claude Code CLI installed?"
+    );
+    console.error(
+      "    Run manually:"
+    );
+    console.error(
+      `      claude mcp add --transport stdio --scope user \\`
+    );
+    console.error(
+      `        -e MNEMO_DATA_DIR=${MNEMO_DATA_DIR} \\`
+    );
+    console.error(
+      `        -e OLLAMA_URL=http://localhost:11434 \\`
+    );
+    console.error(
+      `        mnemo -- node ${path.join(MNEMO_ROOT, "dist/src/index.js")}`
+    );
+  }
+
+  // 4. Copy hook scripts to ~/.mnemo/hooks/
+  const hooksDestDir = path.join(MNEMO_DATA_DIR, "hooks");
+  fs.mkdirSync(hooksDestDir, { recursive: true });
+  const hookFiles = ["session-start.sh", "post-tool-use.sh"];
+  for (const file of hookFiles) {
+    fs.copyFileSync(
+      path.join(MNEMO_ROOT, "hooks", file),
+      path.join(hooksDestDir, file)
+    );
+    fs.chmodSync(path.join(hooksDestDir, file), 0o755);
+  }
+  console.log(`  ✓ ${hooksDestDir}: hook scripts copied`);
+
+  // 5. Merge hooks into ~/.claude/settings.json
+  const settingsPath = path.join(HOME_DIR, ".claude", "settings.json");
+  mergeHooksToSettings(settingsPath, path.join(MNEMO_DATA_DIR, "hooks"));
+  console.log("  ✓ ~/.claude/settings.json: hooks configured");
+
+  // 6. Summary
+  console.log("\n=== Global Setup Complete ===\n");
+  console.log("Mnemo MCP server is now available in all Claude Code sessions.");
+  console.log("\nNote:");
+  console.log("  Skills (slash commands) are project-specific.");
+  console.log('  Run "mnemo init" in each project to add skills.\n');
+}
+
+async function cleanupProject(): Promise<void> {
+  const projectDir = process.cwd();
+  const projectName = path.basename(projectDir);
+
+  console.log(`\n=== Mnemo Cleanup (project: ${projectName}) ===\n`);
+
+  // 1. Remove mnemo from .mcp.json
+  const mcpJsonPath = path.join(projectDir, ".mcp.json");
+  if (fs.existsSync(mcpJsonPath)) {
+    const mcpConfig = JSON.parse(fs.readFileSync(mcpJsonPath, "utf8"));
+    if (mcpConfig.mcpServers?.mnemo) {
+      delete mcpConfig.mcpServers.mnemo;
+      if (Object.keys(mcpConfig.mcpServers).length === 0) {
+        delete mcpConfig.mcpServers;
+      }
+      if (Object.keys(mcpConfig).length === 0) {
+        fs.unlinkSync(mcpJsonPath);
+        console.log("  ✓ .mcp.json: deleted (was empty)");
+      } else {
+        fs.writeFileSync(
+          mcpJsonPath,
+          JSON.stringify(mcpConfig, null, 2) + "\n"
+        );
+        console.log("  ✓ .mcp.json: mnemo entry removed");
+      }
+    } else {
+      console.log("  - .mcp.json: no mnemo entry found");
+    }
+  } else {
+    console.log("  - .mcp.json: not found");
+  }
+
+  // 2. Remove hooks from .claude/settings.json
+  const settingsPath = path.join(projectDir, ".claude", "settings.json");
+  if (removeHooksFromSettings(settingsPath)) {
+    console.log("  ✓ .claude/settings.json: hooks removed");
+  } else {
+    console.log("  - .claude/settings.json: no hooks found");
+  }
+
+  // 3. Remove hook scripts from .claude/hooks/
+  const hooksDir = path.join(projectDir, ".claude", "hooks");
+  for (const file of ["session-start.sh", "post-tool-use.sh"]) {
+    const filePath = path.join(hooksDir, file);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  }
+  removeDirIfEmpty(hooksDir);
+  console.log("  ✓ .claude/hooks/: hook scripts removed");
+
+  // 4. Remove skills from .claude/skills/
+  const skillsDir = path.join(projectDir, ".claude", "skills");
+  const skillDirs = [
+    "learn",
+    "research",
+    "setup",
+    "session-review",
+    "doc",
+    "code-reuse-finder",
+  ];
+  for (const dir of skillDirs) {
+    const dirPath = path.join(skillsDir, dir);
+    if (fs.existsSync(dirPath)) {
+      fs.rmSync(dirPath, { recursive: true });
+    }
+  }
+  removeDirIfEmpty(skillsDir);
+  console.log("  ✓ .claude/skills/: skills removed");
+
+  // Clean up .claude/ directory if empty
+  removeDirIfEmpty(path.join(projectDir, ".claude"));
+
+  // 5. Summary
+  console.log("\n=== Cleanup Complete ===\n");
+  console.log(`Data in ${MNEMO_DATA_DIR} has been preserved.`);
+  console.log(`To delete all data: rm -rf ${MNEMO_DATA_DIR}\n`);
+}
+
+async function cleanupGlobal(): Promise<void> {
+  console.log("\n=== Mnemo Cleanup (global) ===\n");
+
+  // 1. Remove MCP server via claude mcp remove
+  try {
+    execSync("claude mcp remove mnemo", { stdio: "pipe" });
+    console.log("  ✓ MCP server: removed (claude mcp remove)");
+  } catch {
+    console.log("  - MCP server: not found or already removed");
+  }
+
+  // 2. Remove hooks from ~/.claude/settings.json
+  const settingsPath = path.join(HOME_DIR, ".claude", "settings.json");
+  if (removeHooksFromSettings(settingsPath)) {
+    console.log("  ✓ ~/.claude/settings.json: hooks removed");
+  } else {
+    console.log("  - ~/.claude/settings.json: no hooks found");
+  }
+
+  // 3. Remove hook scripts from ~/.mnemo/hooks/
+  const hooksDir = path.join(MNEMO_DATA_DIR, "hooks");
+  if (fs.existsSync(hooksDir)) {
+    fs.rmSync(hooksDir, { recursive: true });
+    console.log("  ✓ ~/.mnemo/hooks/: removed");
+  } else {
+    console.log("  - ~/.mnemo/hooks/: not found");
+  }
+
+  // 4. Summary
+  console.log("\n=== Global Cleanup Complete ===\n");
+  console.log(`Data in ${MNEMO_DATA_DIR} has been preserved.`);
+  console.log(`To delete all data: rm -rf ${MNEMO_DATA_DIR}\n`);
+}
+
+// --- init command ---
+program
+  .command("init")
+  .description("Initialize Mnemo for the current project or globally")
+  .option("--global", "Set up globally for all projects (MCP + hooks in user scope)")
+  .action(async (opts) => {
+    try {
+      if (opts.global) {
+        await initGlobal();
+      } else {
+        await initProject();
+      }
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : error
+      );
+      process.exit(1);
+    }
+  });
+
+// --- cleanup command ---
+program
+  .command("cleanup")
+  .description("Remove Mnemo configuration from the current project or globally")
+  .option("--global", "Remove global configuration")
+  .action(async (opts) => {
+    try {
+      if (opts.global) {
+        await cleanupGlobal();
+      } else {
+        await cleanupProject();
+      }
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : error
+      );
+      process.exit(1);
     }
   });
 

@@ -29,61 +29,58 @@ ollama pull nomic-embed-text
 
 ## Installation
 
-### Quick Install
-
 ```bash
-git clone https://github.com/techarm/mnemo.git
-cd mnemo
-bash scripts/install.sh
+npm install -g github:techarm/mnemo
 ```
 
-### Manual Install
+## Setup
+
+### Project Setup (recommended for first-time users)
+
+Set up Mnemo for a single project. This configures MCP server, hooks, and skills within the project:
 
 ```bash
-git clone https://github.com/techarm/mnemo.git
-cd mnemo
-npm install
-npm run build
-npm link  # makes 'mnemo' command available globally
+cd your-project
+mnemo init
 ```
 
-## Claude Code Integration
+This will:
+- Add MCP server config to `.mcp.json`
+- Copy hook scripts to `.claude/hooks/`
+- Configure hooks in `.claude/settings.json`
+- Copy skill definitions to `.claude/skills/`
+- Register the project in Mnemo
 
-### 1. Add MCP Server
+### Global Setup (all projects)
 
-Register Mnemo as an MCP server so Claude Code can use it:
+Set up Mnemo globally so it's available in all Claude Code sessions:
 
 ```bash
-claude mcp add mnemo \
-  node /path/to/mnemo/dist/src/index.js \
-  -e MNEMO_DATA_DIR=$HOME/.mnemo \
-  -e OLLAMA_URL=http://localhost:11434
+mnemo init --global
 ```
 
-### 2. Add Hooks (Optional)
+This will:
+- Register MCP server globally via `claude mcp add --scope user`
+- Copy hook scripts to `~/.mnemo/hooks/`
+- Configure hooks in `~/.claude/settings.json`
 
-Copy hooks to enable automatic knowledge injection and error detection:
+> **Note:** Skills (slash commands) are project-specific. Run `mnemo init` in each project to add skills.
+
+### Removing Configuration
+
+Remove Mnemo configuration from the current project:
 
 ```bash
-# Copy hooks config to your project
-cp /path/to/mnemo/hooks/hooks.json /your/project/.claude/hooks.json
-
-# Copy hook scripts
-cp -r /path/to/mnemo/hooks/ /your/project/hooks/
+mnemo cleanup
 ```
 
-**Hooks provide:**
-- **Session Start** — Auto-injects relevant knowledge + user profile at session start
-- **Post Tool Use** — Detects errors and suggests recording solutions with `/learn`
-- **Session End** — Prompts for session review
-
-### 3. Add Skills (Optional)
-
-Copy skill definitions to your project for slash commands:
+Remove global configuration:
 
 ```bash
-cp -r /path/to/mnemo/.claude/skills/ /your/project/.claude/skills/
+mnemo cleanup --global
 ```
+
+> **Note:** `cleanup` removes configuration only. Your knowledge data in `~/.mnemo/` is preserved.
 
 ## CLI Usage
 
