@@ -30,7 +30,7 @@ ollama pull nomic-embed-text
 ## Installation
 
 ```bash
-npm install -g github:techarm/mnemo
+npm install -g @techarm/mnemo
 ```
 
 ## Setup

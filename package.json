@@ -1,5 +1,5 @@
 {
-  "name": "mnemo",
+  "name": "@techarm/mnemo",
   "version": "0.4.0",
   "description": "Mnemo - Knowledge memory system for Claude Code",
   "type": "module",
@@ -7,11 +7,11 @@
     "mnemo": "./dist/bin/mnemo.js"
   },
   "scripts": {
-    "build": "node ./node_modules/typescript/bin/tsc",
+    "build": "tsc",
     "dev": "tsc --watch",
     "start:mcp": "node dist/src/index.js",
     "start:cli": "node dist/bin/mnemo.js",
-    "prepare": "npm run build"
+    "prepublishOnly": "npm run build"
   },
   "repository": {
     "type": "git",
