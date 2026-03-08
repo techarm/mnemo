@@ -30,6 +30,8 @@ MCPサーバー起動 / CLI 実行
                     │
                     ├─→ getAllKnowledgeEntries() で全エントリ取得
                     │
+                    ├─→ procedure タイプはスキップ（永続的な手順書のため減衰対象外）
+                    │
                     ├─→ 各エントリの ageDays を計算
                     │     ageDays = (now - updatedAt) / (1000 * 60 * 60 * 24)
                     │
@@ -102,6 +104,7 @@ batchUpdateConfidence(updates: { id: string; confidence: number }[]): Promise<vo
 
 ## 注意点・制約
 
+- **procedure タイプは減衰対象外**: `type === "procedure"` のエントリは `decayConfidence()` でスキップされ、confidence は常に 1.0 を維持する。手順書は永続的な記録として扱われる
 - **起動時のみ実行**: 長時間セッション中に減衰は進まない。次回起動時にまとめて計算される
 - **updatedAt 基準**: `createdAt` ではなく `updatedAt` が減衰の基準日。知識を更新すれば信頼度もリセットされる
 - **時定数はハードコード**: `CONFIDENCE_TIME_CONSTANT = 180` は定数。ユーザー設定で変更不可

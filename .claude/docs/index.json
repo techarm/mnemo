@@ -5,7 +5,7 @@
       "id": "architecture",
       "filename": "architecture.md",
       "title": "システムアーキテクチャ",
-      "summary": "3テーブル構成（knowledge/projects/tasks）、LanceDB+Ollama、MCP+CLIデュアルインターフェース、ファイルベースドキュメント、ユーザープロフィール",
+      "summary": "3テーブル構成（knowledge/projects/tasks）、LanceDB+Ollama、MCP+CLIデュアルインターフェース、ファイルベースドキュメント、ユーザープロフィール、procedureタイプ",
       "scope": "global",
       "relatedFiles": [
         "src/index.ts",
@@ -17,7 +17,7 @@
       ],
       "tags": ["architecture", "design", "overview"],
       "createdAt": "2026-03-07T12:00:00Z",
-      "updatedAt": "2026-03-08T00:30:00Z"
+      "updatedAt": "2026-03-08T14:30:00Z"
     },
     {
       "id": "hybrid-search",
@@ -38,7 +38,7 @@
       "id": "confidence-decay",
       "filename": "confidence-decay.md",
       "title": "信頼度減衰システム",
-      "summary": "時定数τ=180日の指数減衰、フロア値0.1、recall時+0.1ブースト、起動時バッチ処理",
+      "summary": "時定数τ=180日の指数減衰、フロア値0.1、recall時+0.1ブースト、起動時バッチ処理、procedureタイプは減衰対象外",
       "scope": "feature",
       "relatedFiles": [
         "src/core/knowledge-store.ts",
@@ -53,7 +53,7 @@
       "id": "claude-md-generation",
       "filename": "claude-md-generation.md",
       "title": "CLAUDE.md 自動生成",
-      "summary": "マーカーベース部分更新、confidence>=0.5フィルタ、知識・タスク・ドキュメントをセクション分類して出力",
+      "summary": "マーカーベース部分更新、confidence>=0.5フィルタ、知識・タスク・ドキュメントをセクション分類して出力、procedure/referenceセクション追加",
       "scope": "feature",
       "relatedFiles": [
         "src/core/claude-md-generator.ts",
@@ -68,7 +68,7 @@
       "id": "mcp-tools",
       "filename": "mcp-tools.md",
       "title": "MCPツール・CLIインターフェース",
-      "summary": "11個のMCPツール（learn/recall/project/task/doc/generate/backup/stats/export/delete/profile）+ CLI + スキル + フック",
+      "summary": "11個のMCPツール（learn/recall/project/task/doc/generate/backup/stats/export/delete/profile）+ CLI + 7スキル（learn/research/setup/session-review/doc/code-reuse-finder） + フック",
       "scope": "api",
       "relatedFiles": [
         "src/index.ts",
@@ -77,12 +77,13 @@
         "src/core/obsidian-exporter.ts",
         ".claude/skills/learn/SKILL.md",
         ".claude/skills/research/SKILL.md",
+        ".claude/skills/setup/SKILL.md",
         ".claude/skills/session-review/SKILL.md",
         ".claude/skills/doc/SKILL.md"
       ],
       "tags": ["mcp", "cli", "api", "interface"],
       "createdAt": "2026-03-07T12:00:00Z",
-      "updatedAt": "2026-03-08T00:30:00Z"
+      "updatedAt": "2026-03-08T14:30:00Z"
     }
   ]
 }

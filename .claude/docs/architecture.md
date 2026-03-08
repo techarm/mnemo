@@ -51,6 +51,7 @@ hooks/
 ├── skills/
 │   ├── learn/SKILL.md       # /learn スキル
 │   ├── research/SKILL.md    # /research スキル（Web+Context7調査→reference保存）
+│   ├── setup/SKILL.md       # /setup スキル（ツールセットアップ手順の調査・記録・実行）
 │   ├── session-review/SKILL.md # /session-review スキル
 │   ├── doc/SKILL.md         # /doc スキル
 │   └── code-reuse-finder/SKILL.md # /code-reuse-finder スキル
@@ -84,8 +85,9 @@ hooks/
 ### 型定義（src/types/index.ts）
 
 - `KnowledgeEntry` — 知識エントリ（vector, confidence, accessCount 含む）
-  - `type`: lesson / pitfall / preference / pattern / solution / reference
-  - reference 固有フィールド: `rawContent`（全文キャッシュ）, `sourceUrl`, `sourceType`（web/context7）, `fetchedAt`, `ttlDays`
+  - `type`: lesson / pitfall / preference / pattern / solution / reference / procedure
+  - reference/procedure 固有フィールド: `rawContent`（全文テキスト）, `sourceUrl`, `sourceType`（web/context7）, `fetchedAt`, `ttlDays`
+  - procedure は信頼度減衰・TTL 対象外（永続的な手順書）
 - `ProjectEntry` — プロジェクト（name, path, techStack）
 - `TaskEntry` — タスク（status, priority, parentId で階層化）
 - `UserProfile` — ユーザープロフィール（identity/technical/tools/communication/codingStyle/customNotes）

@@ -9,7 +9,7 @@ Mnemo に蓄積された知識・タスク・ドキュメントを CLAUDE.md に
 - **マーカーベース（MNEMO:START / MNEMO:END）**: CLAUDE.md 全体を上書きせず、マーカーで囲まれた部分のみ置換。ユーザーが手書きした部分（プロンプト指示、ルール等）は一切変更されない
 - **マーカーがない場合は末尾に追記**: 既存の CLAUDE.md にマーカーがなければ末尾にセクションを追加。マーカーがあれば置換
 - **confidence >= 0.5 フィルタ**: 信頼度が低い（古い・使われていない）知識は CLAUDE.md に表示しない。検索では見つかるが、AI が毎回読むコンテキストには含めない
-- **タイプ別セクション分類**: pitfall → preference → pattern → lesson → solution の固定順で表示。各タイプに絵文字アイコンを付与
+- **タイプ別セクション分類**: pitfall → preference → pattern → lesson → solution → procedure → reference の固定順で表示。各タイプに絵文字アイコンを付与
 - **ローカルタイムゾーン表示**: UTC の ISO文字列を手動でローカル時間に変換表示（`formatLocalTime()`）
 
 ## 構成
@@ -39,7 +39,7 @@ generateClaudeMdSection(projectName)
           ├── MNEMO:START マーカー + 最終更新タイムスタンプ
           ├── ## プロジェクト情報（名前, 言語, フレームワーク, 技術スタック）
           ├── ## 📖 Project Docs（ドキュメント一覧・リンク）
-          ├── ## ⚠️ Pitfalls / 🎯 Preferences / 📐 Patterns / 💡 Lessons / 🔧 Solutions
+          ├── ## ⚠️ Pitfalls / 🎯 Preferences / 📐 Patterns / 💡 Lessons / 🔧 Solutions / 📝 Procedures / 📚 References
           ├── ## 📋 Active Tasks
           └── MNEMO:END マーカー
 ```
@@ -96,6 +96,8 @@ writeClaudeMd(projectName)
 | pattern | 📐 | Patterns（確立されたパターン） |
 | lesson | 💡 | Lessons（教訓） |
 | solution | 🔧 | Solutions（解決策） |
+| procedure | 📝 | Procedures（手順書） |
+| reference | 📚 | References（参照知識） |
 
 ## 主要なインターフェース
 
