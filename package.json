@@ -7,7 +7,7 @@
     "mnemo": "./dist/bin/mnemo.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "node ./node_modules/typescript/bin/tsc",
     "dev": "tsc --watch",
     "start:mcp": "node dist/src/index.js",
     "start:cli": "node dist/bin/mnemo.js",
