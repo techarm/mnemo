@@ -18,6 +18,7 @@ Look for these categories:
 - **Solutions**: Specific fixes or workarounds for concrete problems.
 - **Patterns**: Reusable approaches, architecture decisions, or workflow optimizations that worked well.
 - **Preferences**: Coding conventions or tool choices the user established or reinforced.
+  - **Tip**: For persistent user-level preferences (name, preferred tools like pnpm/oxlint, coding style, communication language), suggest storing them in the user profile via `mnemo_profile(action: set, category: ..., key: ..., value: ...)` instead of creating a preference knowledge entry. The profile is always available in CLAUDE.md and session context without confidence decay, while preference entries decay over time.
 - **References**: Web research results (from Web Search, WebFetch, or Context7) that were used in this session and would be valuable to persist for future sessions. Use `/research` skill or `mnemo_learn(type: "reference")` to save these.
 
 ### For each finding:

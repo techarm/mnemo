@@ -4,6 +4,7 @@ import { getAllKnowledgeEntries } from "../db/lance-client.js";
 import { getTasksByProject } from "../db/project-client.js";
 import { getProject } from "./project-store.js";
 import { getDocsSummary } from "./doc-store.js";
+import { getProfileSummary } from "./profile-store.js";
 import { computeTtlStatus } from "./knowledge-store.js";
 import type { KnowledgeEntry, TaskEntry } from "../types/index.js";
 
@@ -106,6 +107,12 @@ export async function generateClaudeMdSection(
   if (techStack.length > 0)
     lines.push(`- **技術スタック:** ${techStack.join(", ")}`);
   lines.push("");
+
+  // ユーザープロフィールセクション
+  const profileSummary = getProfileSummary();
+  if (profileSummary) {
+    lines.push(profileSummary);
+  }
 
   // ドキュメントセクション
   const docsSummary = await getDocsSummary(projectName);

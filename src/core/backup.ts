@@ -7,6 +7,7 @@ import type {
   KnowledgeEntry,
   ProjectEntry,
   TaskEntry,
+  UserProfile,
 } from "../types/index.js";
 
 // Current schema version
@@ -18,6 +19,7 @@ export interface BackupData {
   knowledge: KnowledgeEntry[];
   projects: ProjectEntry[];
   tasks: TaskEntry[];
+  profile?: UserProfile;
 }
 
 /**
@@ -44,12 +46,24 @@ export async function createBackup(outputPath?: string): Promise<string> {
     vector: [] as number[], // Exclude vectors to save space
   }));
 
+  // Include user profile if exists
+  let profile: UserProfile | undefined;
+  try {
+    const { loadProfile, hasProfile } = await import("./profile-store.js");
+    if (hasProfile()) {
+      profile = loadProfile();
+    }
+  } catch {
+    // Profile module not available — skip
+  }
+
   const backup: BackupData = {
     version: SCHEMA_VERSION,
     createdAt: new Date().toISOString(),
     knowledge: knowledgeWithoutVectors,
     projects,
     tasks,
+    profile,
   };
 
   fs.writeFileSync(filePath, JSON.stringify(backup, null, 2), "utf-8");
@@ -129,6 +143,16 @@ export async function restoreBackup(
       taskCount++;
     } catch {
       // Skip on error
+    }
+  }
+
+  // Restore profile if present
+  if (backup.profile) {
+    try {
+      const { saveProfile } = await import("./profile-store.js");
+      saveProfile(backup.profile);
+    } catch {
+      // Profile module not available — skip
     }
   }
 

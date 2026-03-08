@@ -45,7 +45,15 @@ import {
   updateDoc,
   deleteDoc,
 } from "./core/doc-store.js";
-import type { KnowledgeType, TaskStatus, TaskPriority, DocScope } from "./types/index.js";
+import {
+  loadProfile,
+  setProfileValue,
+  getProfileValue,
+  deleteProfileValue,
+  resetProfile,
+  formatProfile,
+} from "./core/profile-store.js";
+import type { KnowledgeType, TaskStatus, TaskPriority, DocScope, ProfileCategory } from "./types/index.js";
 
 /** UTC ISO文字列をローカルタイムゾーンの "YYYY-MM-DD HH:mm" に変換 */
 function formatLocalTime(isoString: string): string {
@@ -1417,6 +1425,220 @@ server.tool(
           {
             type: "text" as const,
             text: `Session operation failed: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+// --- mnemo_profile ---
+server.tool(
+  "mnemo_profile",
+  "Manage the global user profile for personalized Claude Code behavior. Profile is stored at ~/.mnemo/profile.json and injected at session start. Categories: identity (name, role, expertise), technical (languages, frameworks, os, editor), tools (packageManager, linter, formatter, testRunner, bundler), communication (language, style, verbosity), codingStyle (naming, patterns, conventions), customNotes (free-form text).",
+  {
+    action: z
+      .enum(["show", "set", "get", "delete"])
+      .describe(
+        "Action: show (full profile), set (set a value), get (get category/key), delete (remove a key)"
+      ),
+    category: z
+      .enum([
+        "identity",
+        "technical",
+        "tools",
+        "communication",
+        "codingStyle",
+        "customNotes",
+      ])
+      .optional()
+      .describe("Profile category (required for set/get/delete)"),
+    key: z
+      .string()
+      .optional()
+      .describe(
+        "Key within the category (required for set/delete, optional for get). For customNotes, key is ignored."
+      ),
+    value: z
+      .string()
+      .optional()
+      .describe("Value to set (required for set action)"),
+  },
+  async (args) => {
+    try {
+      switch (args.action) {
+        case "show": {
+          const text = formatProfile();
+          return {
+            content: [{ type: "text" as const, text }],
+          };
+        }
+
+        case "set": {
+          if (!args.category || !args.value) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: "Error: 'category' and 'value' are required for set action.",
+                },
+              ],
+              isError: true,
+            };
+          }
+          const key = args.category === "customNotes" ? "_" : args.key;
+          if (!key) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: "Error: 'key' is required for set action (except customNotes).",
+                },
+              ],
+              isError: true,
+            };
+          }
+          setProfileValue(
+            args.category as ProfileCategory,
+            key,
+            args.value
+          );
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text:
+                  args.category === "customNotes"
+                    ? `プロフィールを更新しました: customNotes`
+                    : `プロフィールを更新しました: ${args.category}.${key} = ${args.value}`,
+              },
+            ],
+          };
+        }
+
+        case "get": {
+          if (!args.category) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: "Error: 'category' is required for get action.",
+                },
+              ],
+              isError: true,
+            };
+          }
+          if (args.category === "customNotes") {
+            const notes = getProfileValue(args.category as ProfileCategory, "_");
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: notes ? `customNotes: ${notes}` : "customNotes は空です。",
+                },
+              ],
+            };
+          }
+          if (args.key) {
+            const val = getProfileValue(
+              args.category as ProfileCategory,
+              args.key
+            );
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: val
+                    ? `${args.category}.${args.key} = ${val}`
+                    : `${args.category}.${args.key} は設定されていません。`,
+                },
+              ],
+            };
+          }
+          // Return entire category
+          const profile = loadProfile();
+          const data = profile[
+            args.category as keyof typeof profile
+          ] as Record<string, string>;
+          if (typeof data !== "object" || Object.keys(data).length === 0) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: `${args.category} は空です。`,
+                },
+              ],
+            };
+          }
+          const lines = Object.entries(data)
+            .map(([k, v]) => `- ${k}: ${v}`)
+            .join("\n");
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `# ${args.category}\n\n${lines}`,
+              },
+            ],
+          };
+        }
+
+        case "delete": {
+          if (!args.category) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: "Error: 'category' is required for delete action.",
+                },
+              ],
+              isError: true,
+            };
+          }
+          const delKey = args.category === "customNotes" ? "_" : args.key;
+          if (!delKey) {
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: "Error: 'key' is required for delete action (except customNotes).",
+                },
+              ],
+              isError: true,
+            };
+          }
+          deleteProfileValue(args.category as ProfileCategory, delKey);
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text:
+                  args.category === "customNotes"
+                    ? `プロフィールから customNotes をクリアしました。`
+                    : `プロフィールから ${args.category}.${delKey} を削除しました。`,
+              },
+            ],
+          };
+        }
+
+        default:
+          return {
+            content: [
+              {
+                type: "text" as const,
+                text: `Unknown action: ${args.action}`,
+              },
+            ],
+            isError: true,
+          };
+      }
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `Profile operation failed: ${error instanceof Error ? error.message : String(error)}`,
           },
         ],
         isError: true,

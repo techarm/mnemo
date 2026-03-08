@@ -3,6 +3,9 @@ set -euo pipefail
 
 PROJECT_NAME=$(basename "${CLAUDE_PROJECT_DIR:-$(pwd)}")
 
+# プロフィール取得
+PROFILE_CONTEXT=$(mnemo profile context 2>/dev/null || echo "")
+
 # Mnemo CLI で関連知識を検索
 RESULTS=$(mnemo recall "$PROJECT_NAME" --limit 5 --format json 2>/dev/null || echo "[]")
 
@@ -20,10 +23,19 @@ fi
 # セッションログ取得
 SESSION_CONTEXT=$(mnemo session context -p "$PROJECT_NAME" 2>/dev/null || echo "")
 
-# 両方を結合
+# プロフィール → 知識 → セッションログの順に結合
 COMBINED=""
+if [ -n "$PROFILE_CONTEXT" ]; then
+  COMBINED="$PROFILE_CONTEXT"
+fi
 if [ -n "$KNOWLEDGE_CONTEXT" ]; then
-  COMBINED="$KNOWLEDGE_CONTEXT"
+  if [ -n "$COMBINED" ]; then
+    COMBINED="$COMBINED
+
+$KNOWLEDGE_CONTEXT"
+  else
+    COMBINED="$KNOWLEDGE_CONTEXT"
+  fi
 fi
 if [ -n "$SESSION_CONTEXT" ]; then
   if [ -n "$COMBINED" ]; then

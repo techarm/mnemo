@@ -42,7 +42,16 @@ import {
   getRecentSessionLogs,
   getSessionContext,
 } from "../src/core/session-store.js";
-import type { KnowledgeType, TaskStatus, TaskPriority, DocScope } from "../src/types/index.js";
+import {
+  loadProfile,
+  setProfileValue,
+  getProfileValue,
+  deleteProfileValue,
+  resetProfile,
+  formatProfile,
+  getProfileContext,
+} from "../src/core/profile-store.js";
+import type { KnowledgeType, TaskStatus, TaskPriority, DocScope, ProfileCategory } from "../src/types/index.js";
 
 /** UTC ISO文字列をローカルタイムゾーンの "YYYY-MM-DD HH:mm" に変換 */
 function formatLocalTime(isoString: string): string {
@@ -944,6 +953,175 @@ sessionCmd
         projectName = detected.name;
       }
       const context = getSessionContext(projectName, parseInt(opts.days));
+      if (context) {
+        console.log(context);
+      }
+    } catch {
+      // Silently fail — hook should not break session start
+    }
+  });
+
+// --- profile ---
+
+const VALID_CATEGORIES = [
+  "identity",
+  "technical",
+  "tools",
+  "communication",
+  "codingStyle",
+  "customNotes",
+];
+
+const profileCmd = program
+  .command("profile")
+  .description("ユーザープロフィール管理");
+
+profileCmd
+  .command("show")
+  .description("プロフィールを表示")
+  .action(() => {
+    try {
+      console.log(formatProfile());
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : error
+      );
+      process.exit(1);
+    }
+  });
+
+profileCmd
+  .command("set <category> <key> <value>")
+  .description(
+    "プロフィール値を設定 (カテゴリ: identity, technical, tools, communication, codingStyle, customNotes)"
+  )
+  .action((category: string, key: string, value: string) => {
+    try {
+      if (!VALID_CATEGORIES.includes(category)) {
+        console.error(
+          `Error: 無効なカテゴリ "${category}"。有効: ${VALID_CATEGORIES.join(", ")}`
+        );
+        process.exit(1);
+      }
+      setProfileValue(category as ProfileCategory, key, value);
+      if (category === "customNotes") {
+        console.log(`プロフィールを更新しました: customNotes`);
+      } else {
+        console.log(
+          `プロフィールを更新しました: ${category}.${key} = ${value}`
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : error
+      );
+      process.exit(1);
+    }
+  });
+
+profileCmd
+  .command("get <category> [key]")
+  .description("プロフィール値を取得")
+  .action((category: string, key?: string) => {
+    try {
+      if (!VALID_CATEGORIES.includes(category)) {
+        console.error(
+          `Error: 無効なカテゴリ "${category}"。有効: ${VALID_CATEGORIES.join(", ")}`
+        );
+        process.exit(1);
+      }
+      if (category === "customNotes") {
+        const notes = getProfileValue(
+          category as ProfileCategory,
+          "_"
+        );
+        console.log(notes || "(空)");
+        return;
+      }
+      if (key) {
+        const val = getProfileValue(category as ProfileCategory, key);
+        console.log(val || `(${category}.${key} は設定されていません)`);
+      } else {
+        // Show entire category
+        const profile = loadProfile();
+        const data = profile[
+          category as keyof typeof profile
+        ] as Record<string, string>;
+        if (typeof data !== "object" || Object.keys(data).length === 0) {
+          console.log(`${category} は空です。`);
+          return;
+        }
+        console.log(`${category}:`);
+        for (const [k, v] of Object.entries(data)) {
+          console.log(`  ${k}: ${v}`);
+        }
+      }
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : error
+      );
+      process.exit(1);
+    }
+  });
+
+profileCmd
+  .command("delete <category> <key>")
+  .description("プロフィール値を削除")
+  .action((category: string, key: string) => {
+    try {
+      if (!VALID_CATEGORIES.includes(category)) {
+        console.error(
+          `Error: 無効なカテゴリ "${category}"。有効: ${VALID_CATEGORIES.join(", ")}`
+        );
+        process.exit(1);
+      }
+      deleteProfileValue(category as ProfileCategory, key);
+      if (category === "customNotes") {
+        console.log("customNotes をクリアしました。");
+      } else {
+        console.log(`${category}.${key} を削除しました。`);
+      }
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : error
+      );
+      process.exit(1);
+    }
+  });
+
+profileCmd
+  .command("reset")
+  .description("プロフィールをリセット（全削除）")
+  .option("--confirm", "確認フラグ（必須）")
+  .action((opts) => {
+    try {
+      if (!opts.confirm) {
+        console.error(
+          "Error: リセットするには --confirm フラグが必要です。"
+        );
+        process.exit(1);
+      }
+      resetProfile();
+      console.log("プロフィールをリセットしました。");
+    } catch (error) {
+      console.error(
+        "Error:",
+        error instanceof Error ? error.message : error
+      );
+      process.exit(1);
+    }
+  });
+
+profileCmd
+  .command("context")
+  .description("プロフィールコンテキスト出力（hook用）")
+  .action(() => {
+    try {
+      const context = getProfileContext();
       if (context) {
         console.log(context);
       }

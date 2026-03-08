@@ -151,6 +151,28 @@ export interface SessionIndexEntry {
   lastUpdated: string; // ISO
 }
 
+// --- User Profile types ---
+
+export type ProfileCategory =
+  | "identity"
+  | "technical"
+  | "tools"
+  | "communication"
+  | "codingStyle"
+  | "customNotes";
+
+export interface UserProfile {
+  version: "1.0";
+  identity: Record<string, string>; // name, role, expertise
+  technical: Record<string, string>; // languages, frameworks, os, editor
+  tools: Record<string, string>; // packageManager, linter, formatter, testRunner, bundler
+  communication: Record<string, string>; // language, style, verbosity
+  codingStyle: Record<string, string>; // naming, patterns, conventions
+  customNotes: string; // 自由記述
+  createdAt: string;
+  updatedAt: string;
+}
+
 export function getConfig(): MnemoConfig {
   return {
     dataDir: process.env.MNEMO_DATA_DIR || `${process.env.HOME}/.mnemo`,
