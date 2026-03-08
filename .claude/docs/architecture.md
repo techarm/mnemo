@@ -22,6 +22,7 @@ src/
 │   ├── hybrid-search.ts     # Vector + FTS → RRF → スコアリング
 │   ├── claude-md-generator.ts # CLAUDE.md マーカーベース生成
 │   ├── doc-store.ts         # 仕様ドキュメント CRUD
+│   ├── profile-store.ts     # ユーザープロフィール管理（ファイルベース）
 │   ├── backup.ts            # バックアップ・リストア・起動時メンテナンス
 │   ├── exporter.ts          # Markdown エクスポート
 │   └── obsidian-exporter.ts # Obsidian Vault エクスポート
@@ -66,7 +67,8 @@ hooks/
     └─ CLI ─────────→ bin/mnemo.ts ──→ core 層 ──→ db 層 ──→ LanceDB
                                          │
                                          ├─→ Ollama API (埋め込みベクトル生成)
-                                         └─→ .claude/docs/ (仕様ドキュメント)
+                                         ├─→ .claude/docs/ (仕様ドキュメント)
+                                         └─→ ~/.mnemo/profile.json (ユーザープロフィール)
 ```
 
 ## 主要なインターフェース
@@ -86,6 +88,7 @@ hooks/
   - reference 固有フィールド: `rawContent`（全文キャッシュ）, `sourceUrl`, `sourceType`（web/context7）, `fetchedAt`, `ttlDays`
 - `ProjectEntry` — プロジェクト（name, path, techStack）
 - `TaskEntry` — タスク（status, priority, parentId で階層化）
+- `UserProfile` — ユーザープロフィール（identity/technical/tools/communication/codingStyle/customNotes）
 - `DocEntry` / `DocIndex` — 仕様ドキュメントメタデータ
 
 ## 注意点・制約
@@ -96,6 +99,7 @@ hooks/
 - **Ollama 依存**: 埋め込み生成に Ollama が起動している必要がある。停止中は knowledge 関連操作が全て失敗する
 - **delete + re-add パターン**: LanceDB に UPDATE がないため、更新は削除→再追加。クラッシュ時の不整合リスクあり
 - **スキーマ進化は読み取り時正規化**: 新カラム追加時、古い行は `undefined` → `normalizeKnowledgeEntry()` でデフォルト値を埋めて後方互換を維持
+- **ユーザープロフィールはファイルベース**: `~/.mnemo/profile.json` に単一JSONファイルで保存。LanceDB不使用、信頼度減衰なし。セッション開始時にhookで自動注入、CLAUDE.mdにも出力
 
 ## 関連
 

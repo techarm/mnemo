@@ -5,18 +5,19 @@
       "id": "architecture",
       "filename": "architecture.md",
       "title": "システムアーキテクチャ",
-      "summary": "3テーブル構成（knowledge/projects/tasks）、LanceDB+Ollama、MCP+CLIデュアルインターフェース、ファイルベースドキュメント",
+      "summary": "3テーブル構成（knowledge/projects/tasks）、LanceDB+Ollama、MCP+CLIデュアルインターフェース、ファイルベースドキュメント、ユーザープロフィール",
       "scope": "global",
       "relatedFiles": [
         "src/index.ts",
         "src/db/lance-client.ts",
         "src/db/project-client.ts",
         "src/types/index.ts",
+        "src/core/profile-store.ts",
         "bin/mnemo.ts"
       ],
       "tags": ["architecture", "design", "overview"],
       "createdAt": "2026-03-07T12:00:00Z",
-      "updatedAt": "2026-03-07T23:30:00Z"
+      "updatedAt": "2026-03-08T00:30:00Z"
     },
     {
       "id": "hybrid-search",
@@ -56,21 +57,23 @@
       "scope": "feature",
       "relatedFiles": [
         "src/core/claude-md-generator.ts",
-        "src/core/doc-store.ts"
+        "src/core/doc-store.ts",
+        "src/core/profile-store.ts"
       ],
       "tags": ["claude-md", "generation", "marker"],
       "createdAt": "2026-03-07T12:00:00Z",
-      "updatedAt": "2026-03-07T12:00:00Z"
+      "updatedAt": "2026-03-08T00:30:00Z"
     },
     {
       "id": "mcp-tools",
       "filename": "mcp-tools.md",
       "title": "MCPツール・CLIインターフェース",
-      "summary": "10個のMCPツール（learn/recall/project/task/doc/generate/backup/stats/export/delete）+ CLI + スキル + フック",
+      "summary": "11個のMCPツール（learn/recall/project/task/doc/generate/backup/stats/export/delete/profile）+ CLI + スキル + フック",
       "scope": "api",
       "relatedFiles": [
         "src/index.ts",
         "bin/mnemo.ts",
+        "src/core/profile-store.ts",
         "src/core/obsidian-exporter.ts",
         ".claude/skills/learn/SKILL.md",
         ".claude/skills/research/SKILL.md",
@@ -79,7 +82,7 @@
       ],
       "tags": ["mcp", "cli", "api", "interface"],
       "createdAt": "2026-03-07T12:00:00Z",
-      "updatedAt": "2026-03-07T23:30:00Z"
+      "updatedAt": "2026-03-08T00:30:00Z"
     }
   ]
 }
