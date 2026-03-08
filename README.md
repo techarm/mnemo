@@ -1,5 +1,7 @@
 # Mnemo
 
+[日本語](README.ja.md)
+
 Knowledge memory system for [Claude Code](https://docs.anthropic.com/en/docs/claude-code).
 
 Mnemo helps Claude Code remember what you've learned across sessions. It stores lessons, pitfalls, patterns, and solutions in a local vector database, then automatically injects relevant knowledge into future sessions via semantic search.
@@ -81,6 +83,81 @@ mnemo cleanup --global
 ```
 
 > **Note:** `cleanup` removes configuration only. Your knowledge data in `~/.mnemo/` is preserved.
+
+## Usage
+
+After running `mnemo init`, start Claude Code in your project. Mnemo works through three mechanisms:
+
+1. **Hooks** — Automatically inject context at session start and detect events during work
+2. **MCP Tools** — Claude Code calls Mnemo's tools behind the scenes (search, store, generate)
+3. **Skills** — Slash commands you invoke to capture and organize knowledge
+
+### Workflow
+
+```
+Session Start (automatic)
+  ├─ Injects user profile (name, tools, coding style)
+  ├─ Searches relevant knowledge for this project
+  └─ Shows last session summary
+        ↓
+During Work
+  ├─ /learn — record insights and pitfalls
+  ├─ /research — research topics, save as reference
+  ├─ /setup — research tool setup, save as reusable procedure
+  ├─ /doc — create/update project spec documents
+  └─ Auto-detection: commits → suggest marking tasks done
+        ↓
+Session End
+  └─ /session-review — extract learnings, update tasks & docs, write session log
+```
+
+### Skills
+
+#### `/learn`
+
+Extract and record knowledge from the current session. Mnemo automatically determines the type (lesson, pitfall, pattern, solution, etc.).
+
+```
+You: /learn LanceDB query() has a default limit of 10
+```
+
+#### `/research [topic]`
+
+Research a topic via web search or Context7 (library docs), then save findings as a reference with automatic expiration.
+
+```
+You: /research React 19 Server Components
+```
+
+#### `/setup [tool]`
+
+First time: research tool setup → organize into steps → save as a permanent procedure.
+Next time: retrieve and execute the saved procedure.
+
+```
+You: /setup oxlint
+```
+
+#### `/doc [topic]` or `/doc init`
+
+Create or update project specification documents in `.claude/docs/`.
+
+- `/doc init` — Auto-generate initial docs by surveying the codebase
+- `/doc authentication` — Create or update a specific doc
+
+#### `/session-review`
+
+End-of-session review that:
+
+1. Extracts knowledge (pitfalls, lessons, solutions) from the session
+2. Marks completed tasks
+3. Checks if project docs need updating
+4. Regenerates CLAUDE.md with latest knowledge
+5. Writes a session log for next session continuity
+
+#### `/code-reuse-finder`
+
+Scan for duplicated code patterns and suggest refactoring opportunities.
 
 ## CLI Usage
 
